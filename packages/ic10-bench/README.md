@@ -25,8 +25,8 @@ it("opens the vent when it gets hot outside", async () => {
 });
 ```
 
-There's also a [VS Code debugger](../ic10-test-vscode/) for stepping through a script while its test
-runs.
+There's also a [VS Code debugger](https://github.com/tasermonkey/ic10-bench/tree/main/packages/vscode#readme)
+for stepping through a script while its test runs.
 
 ## Getting started
 
@@ -325,7 +325,7 @@ devices they name, without running it: a logic type the prefab lacks, a write to
 
 ## Debugging
 
-Install the [VS Code extension](../ic10-test-vscode/), set a breakpoint in your `.ic10` file, and
+Install the [VS Code extension](https://github.com/tasermonkey/ic10-bench/tree/main/packages/vscode#readme), set a breakpoint in your `.ic10` file, and
 click **▶ Debug IC10** above the test. You can step line by line, watch registers and devices, and
 step a tick at a time. Tests need no changes.
 

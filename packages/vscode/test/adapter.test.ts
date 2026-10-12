@@ -336,6 +336,7 @@ describe("debug adapter", () => {
 
 	it("runs Vitest where its config is", () => {
 		expect(findVitestRoot(FIXTURES)).toBe(FIXTURES);
-		expect(findVitestRoot(join(import.meta.dirname))).toBe(join(import.meta.dirname, "..", ".."));
+		// This package has no Vitest config of its own, so its tests run from the repo root's.
+		expect(findVitestRoot(join(import.meta.dirname))).toBe(join(import.meta.dirname, "..", "..", ".."));
 	});
 });

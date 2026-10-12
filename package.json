@@ -1,0 +1,27 @@
+{
+	"name": "ic10-bench-repo",
+	"private": true,
+	"type": "module",
+	"description": "IC10 Bench: automated tests and a VS Code debugger for Stationeers IC10 scripts",
+	"workspaces": [
+		"packages/ic10-bench",
+		"packages/vscode",
+		"vendor/ic10"
+	],
+	"scripts": {
+		"pretest": "npm run pretest -w packages/ic10-bench",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"pretypecheck": "npm run pretest -w packages/ic10-bench",
+		"typecheck": "tsc -p packages/ic10-bench/tsconfig.json && tsc -p packages/vscode/tsconfig.json",
+		"build": "npm run build:lib -w vendor/ic10 && npm run build -w packages/ic10-bench && npm run build -w packages/vscode"
+	},
+	"devDependencies": {
+		"@types/node": "^26.2.0",
+		"typescript": "^7.0.2",
+		"vitest": "^5.0.3"
+	},
+	"engines": {
+		"node": ">=24"
+	}
+}

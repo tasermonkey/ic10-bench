@@ -13,5 +13,5 @@
 		"noEmit": true,
 		"types": ["node"]
 	},
-	"include": ["src", "test", "tools", "bin", "generated", "vitest.config.ts", "../vendor/ic10/src/types.d.ts"]
+	"include": ["src", "test", "tools", "bin", "generated", "vitest.config.ts", "../../vendor/ic10/src/types.d.ts"]
 }

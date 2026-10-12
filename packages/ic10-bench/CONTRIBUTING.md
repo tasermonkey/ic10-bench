@@ -12,7 +12,7 @@ import from outside this directory, except `@tasermonkey/ic10` (the emulator for
 In a checkout it runs as TypeScript source on Node 24+, through the `"source"` export condition
 (`--conditions=source` for Node, `resolve.conditions` for Vitest, `customConditions` for tsc), the
 same way it uses the emulator fork. Its own tests run with `npm test` in this directory, or
-`npm test -w ic10-test` from the workspace root; the root `npm test` runs them too. `npm run
+`npm test -w packages/ic10-bench` from the repo root; the root `npm test` runs them too. `npm run
 typecheck` checks the package with its own `tsconfig.json`.
 
 ## Building and publishing

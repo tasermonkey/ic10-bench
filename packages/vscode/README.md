@@ -1,18 +1,19 @@
 # IC10 Bench for VS Code
 
 Step through your Stationeers IC10 scripts line by line while the
-[`@tasermonkey/ic10-bench`](../ic10-test/) tests run. Set a breakpoint in a `.ic10` file, start the
+[`@tasermonkey/ic10-bench`](https://github.com/tasermonkey/ic10-bench/tree/main/packages/ic10-bench#readme) tests run. Set a breakpoint in a `.ic10` file, start the
 test, and you can see every register, the stack and every device, change values, and step a line or
 a game tick at a time.
 
 ## Install
 
-It isn't on the Marketplace yet. From the workspace root (after `npm install`), build it and install
-it:
+It isn't on the Marketplace yet. From a clone of
+[tasermonkey/ic10-bench](https://github.com/tasermonkey/ic10-bench) (after `npm install`), build it
+and install it:
 
 ```
-npm run vscode:package -w ic10-test-vscode
-code --install-extension ic10-test-vscode/dist/ic10-bench.vsix --force
+npm run vscode:package -w packages/vscode
+code --install-extension packages/vscode/dist/ic10-bench.vsix --force
 ```
 
 Then run **Developer: Reload Window**. You'll need:

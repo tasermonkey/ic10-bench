@@ -7,14 +7,14 @@
 	"type": "module",
 	"publisher": "tasermonkey",
 	"license": "AGPL-3.0-or-later",
-	"homepage": "https://github.com/tasermonkey/chipdata-workspace/tree/main/ic10-test-vscode#readme",
+	"homepage": "https://github.com/tasermonkey/ic10-bench/tree/main/packages/vscode#readme",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/tasermonkey/chipdata-workspace.git",
-		"directory": "ic10-test-vscode"
+		"url": "git+https://github.com/tasermonkey/ic10-bench.git",
+		"directory": "packages/vscode"
 	},
 	"bugs": {
-		"url": "https://github.com/tasermonkey/chipdata-workspace/issues"
+		"url": "https://github.com/tasermonkey/ic10-bench/issues"
 	},
 	"categories": [
 		"Debuggers",

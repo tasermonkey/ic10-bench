@@ -1,6 +1,12 @@
 # IC10 Bench: Plan
 
-The goal is a way to write automated tests for the scripts in [ic10/](ic10/). Each test should:
+> **Paths.** This plan was written in [tasermonkey/chipdata-workspace](https://github.com/tasermonkey/chipdata-workspace),
+> where the harness was `ic10-test/` and the extension `ic10-test-vscode/`. In this repo they're
+> `packages/ic10-bench/` and `packages/vscode/`. The scripts (`ic10/`) and their tests (`tests/`)
+> stayed in chipdata-workspace. See "Publishing and the repo split" in §7.
+
+The goal is a way to write automated tests for the scripts in
+[chipdata-workspace's ic10/](https://github.com/tasermonkey/chipdata-workspace/tree/main/ic10). Each test should:
 
 1. describe an emulated game state: networks, devices, their property values, and pipe and room
    atmospheres;
