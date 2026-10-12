@@ -2,6 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { loadCatalog } from "../src/catalog/catalog.ts";
 import { DebugAgent, type Transport } from "../src/debug/agent.ts";
 import {
 	type AdapterMessage,
@@ -926,7 +927,8 @@ describe("debug agent: what you see while stopped", () => {
 		expect(vent.value).toBe("StructureActiveVent $1001");
 		expect(vent.ref).toBeGreaterThan(0);
 		expect((await evaluate("coolant")).value).toMatch(/^pipe 100 L/);
-		expect((await evaluate("Setting", "hover")).value).toMatch(/^Setting: ./);
+		// A hover on a logic type shows its description, which needs the game (there are none in CI).
+		if (loadCatalog().logicTypes.Setting) expect((await evaluate("Setting", "hover")).value).toMatch(/^Setting: ./);
 		await expect(evaluate("nope")).rejects.toThrow(/isn't a register/);
 		await adapter.request("continue", {});
 		await run;

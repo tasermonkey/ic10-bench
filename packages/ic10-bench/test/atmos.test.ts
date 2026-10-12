@@ -12,9 +12,9 @@ describe("gases", () => {
 	});
 
 	it("match the catalogue's Ratio<Gas> logic types, one for one", () => {
-		const ratios = Object.keys(loadCatalog().logicTypes).filter(
-			(name) => /^Ratio.+/.test(name) && !/(Input2?|Output2?)$/.test(name),
-		);
+		// From the prefabs, not the descriptions, which need the game (there are none in CI).
+		const names = new Set(Object.values(loadCatalog().prefabs).flatMap((p) => Object.keys(p.logic)));
+		const ratios = [...names].filter((name) => /^Ratio.+/.test(name) && !/(Input2?|Output2?)$/.test(name));
 		expect(ratios.sort()).toEqual(GASES.map((g) => `Ratio${g.name}`).sort());
 	});
 
