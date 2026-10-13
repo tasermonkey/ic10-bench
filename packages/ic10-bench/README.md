@@ -33,8 +33,10 @@ for stepping through a script while its test runs.
 1. Install [Node.js](https://nodejs.org/) 24 or later.
 2. In the folder with your scripts (run `npm init -y` first if it has no `package.json`):
    ```
+   npm pkg set type=module
    npm install --save-dev @tasermonkey/ic10-bench vitest
    ```
+   The tests and `vitest.config.ts` are ES modules, and the tests use `import.meta.dirname`.
 3. Add a `vitest.config.ts`:
    ```ts
    import { defineIc10Config } from "@tasermonkey/ic10-bench/config";

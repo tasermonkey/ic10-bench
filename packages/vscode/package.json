@@ -1,8 +1,8 @@
 {
 	"name": "ic10-bench",
 	"displayName": "IC10 Bench",
-	"description": "Step through Stationeers IC10 scripts while their @tasermonkey/ic10-bench tests run",
-	"version": "0.0.1",
+	"description": "Test your Stationeers IC10 scripts with Vitest, and step through them in the VS Code debugger",
+	"version": "0.0.2",
 	"private": true,
 	"type": "module",
 	"publisher": "tasermonkey",
