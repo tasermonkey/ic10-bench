@@ -1,7 +1,8 @@
-# The .vsix holds the bundle (dist/extension.cjs), package.json, README, LICENSE and the third-party
-# notices for what the bundle includes only.
+# The .vsix holds the bundle (dist/extension.cjs), package.json, the icon, README, LICENSE and the
+# third-party notices for what the bundle includes only.
 **
 !dist/extension.cjs
+!images/icon.png
 !package.json
 !README.md
 !LICENSE

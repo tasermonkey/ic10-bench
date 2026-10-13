@@ -9,7 +9,29 @@ version (`@tasermonkey/ic10-bench/debug-protocol`).
 ## Running from source
 
 Use the launch configuration "Run the IC10 Bench extension" in the repo's `.vscode/launch.json`.
-To build and install the `.vsix`, see the README.
+To build the `.vsix` and install it in your own VS Code (after `npm install` at the repo root):
+
+```
+npm run vscode:package -w packages/vscode
+code --install-extension packages/vscode/dist/ic10-bench.vsix --force
+```
+
+Then run **Developer: Reload Window**.
+
+## Publishing
+
+Publish the same `.vsix` to the VS Code Marketplace (publisher `tasermonkey`) and Open VSX
+(namespace `tasermonkey`). Bump `version` in `package.json` first.
+
+```
+npm run vscode:package -w packages/vscode
+npx vsce publish --packagePath packages/vscode/dist/ic10-bench.vsix -p <Azure DevOps PAT, Marketplace: Manage>
+npx ovsx publish packages/vscode/dist/ic10-bench.vsix -p <Open VSX access token>
+```
+
+`vscode:package` passes `--baseContentUrl` so the README's relative links (`examples/`,
+`CONTRIBUTING.md`) point into `packages/vscode` on GitHub; without it vsce points them at the repo
+root.
 
 ## How it works
 

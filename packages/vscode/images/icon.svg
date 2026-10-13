@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- IC10 Bench: an IC chip with code lines on it, the current line arrowed and a breakpoint dot.
+       Colours: navy #13294b, orange #f26b1d, white. Exported to icon.png (128x128). -->
+  <g fill="#f26b1d">
+    <rect x="4" y="30" width="18" height="9" rx="2"/><rect x="4" y="49" width="18" height="9" rx="2"/>
+    <rect x="4" y="68" width="18" height="9" rx="2"/><rect x="4" y="87" width="18" height="9" rx="2"/>
+    <rect x="106" y="30" width="18" height="9" rx="2"/><rect x="106" y="49" width="18" height="9" rx="2"/>
+    <rect x="106" y="68" width="18" height="9" rx="2"/><rect x="106" y="87" width="18" height="9" rx="2"/>
+  </g>
+  <rect x="18.5" y="14.5" width="91" height="99" rx="12" fill="#13294b" stroke="#f26b1d" stroke-width="5"/>
+  <rect x="45" y="30" width="38" height="8" rx="4" fill="#ffffff"/>
+  <rect x="28" y="43" width="72" height="15" rx="3" fill="#f26b1d"/>
+  <polygon points="31,45.5 40,50.5 31,55.5" fill="#13294b"/>
+  <rect x="45" y="46.5" width="44" height="8" rx="4" fill="#13294b"/>
+  <rect x="45" y="63" width="30" height="8" rx="4" fill="#ffffff"/>
+  <circle cx="36" cy="83" r="5" fill="#f26b1d"/>
+  <rect x="45" y="79" width="46" height="8" rx="4" fill="#ffffff"/>
+  <rect x="45" y="95" width="26" height="8" rx="4" fill="#ffffff"/>
+</svg>

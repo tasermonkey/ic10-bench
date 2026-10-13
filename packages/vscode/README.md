@@ -7,17 +7,18 @@ a game tick at a time.
 
 ## Install
 
-It isn't on the Marketplace yet. From a clone of
-[tasermonkey/ic10-bench](https://github.com/tasermonkey/ic10-bench) (after `npm install`), build it
-and install it:
+Search for **IC10 Bench** in the Extensions view, or run:
 
 ```
-npm run vscode:package -w packages/vscode
-code --install-extension packages/vscode/dist/ic10-bench.vsix --force
+code --install-extension tasermonkey.ic10-bench
 ```
 
-Then run **Developer: Reload Window**. You'll need:
+It's on the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=tasermonkey.ic10-bench)
+and on [Open VSX](https://open-vsx.org/extension/tasermonkey/ic10-bench), for VSCodium, Cursor and
+other editors built on VS Code. You'll also need:
 - Node.js 24 or later on your `PATH`;
+- [`@tasermonkey/ic10-bench`](https://github.com/tasermonkey/ic10-bench/tree/main/packages/ic10-bench#getting-started)
+  and Vitest installed in your project, with a test that runs your script;
 - an IC10 language extension for syntax highlighting (this one adds breakpoints to `.ic10` files but
   doesn't colour them).
 
@@ -136,6 +137,12 @@ Also available: `cwd` (where Vitest's config is; found from the test if left out
 |---|---|---|
 | `ic10-bench.codeLens` | `true` | Show **▶ Debug IC10** above tests. |
 | `ic10-bench.debugTypeScript` | `false` | Debug the test's TypeScript as well. |
+
+## Made with AI
+
+Much of this extension, its tests and its documentation was written with Claude, Anthropic's AI assistant, working under the author's direction, code reviewing, with lots of back and forth debugging and tweaks to get it to the author's liking. The same goes for the [`@tasermonkey/ic10-bench`](https://github.com/tasermonkey/ic10-bench) harness it runs.  The [`@tasermonkey/ic10`](https://github.com/tasermonkey/ic10) project is a fork of the [Stationeers-ic/ic10](https://github.com/Stationeers-ic/ic10) project, and was brought up to date with the current game version at the time, and corrected the emulator to more closely follow what the game does.
+
+Found something wrong? Please [open an issue](https://github.com/tasermonkey/ic10-bench/issues).
 
 ## Licence
 

@@ -644,7 +644,7 @@ debugging and testing behave identically.
 | Where the extension lives | `ic10-test-vscode/`, a sibling of `ic10-test/` with its own package and LICENSE. It shares only the protocol's types and version (`@tasermonkey/ic10-bench/debug-protocol`), so either can move to its own repo. |
 | Grammar | None: your IC10 extension (florpydorp) provides the `ic10` language. Ours declares the language and its breakpoints only. |
 | Code from vscode-ic10 | None. Only its scope layout. |
-| Distribution | A local `.vsix` (`npm run vscode:package -w ic10-test-vscode`), publisher `tasermonkey`, the repo as homepage. |
+| Distribution | `tasermonkey.ic10-bench` on the VS Code Marketplace and Open VSX, the same `.vsix` on both (`npm run vscode:package -w packages/vscode`); the repo as homepage. |
 | Sessions | Each launch is its own session; a new one doesn't stop the last. |
 | Call Stack | A frame per `jal` or branch-and-link call: the stack is the call stack, as in assembly. Step Over and Step Out go by that depth. |
 | CodeLens | Above `it`, `test` and `describe` in TypeScript and JavaScript, only in a workspace with IC10 in it; the setting `ic10-bench.codeLens` turns it off. |
@@ -1260,9 +1260,21 @@ separately, and the adapter already refuses an agent with another `PROTOCOL_VERS
     `ic10-bench catalog` it type-checks (and a misspelt property doesn't).
   - The other IC10 extensions (the emulator authors', shaneyu's, AshleyWilliamson's, FlorpyDorp's)
     all declare the language id `ic10`, the same as ours, so they work side by side.
-- Step 3: the new repo. `git filter-repo` in a fresh clone keeps the history of `ic10-test/`,
-  `ic10-test-vscode/`, this plan and `CODE_REVIEW.md`, renamed into `packages/`. Then point
-  `repository`, `homepage` and `bugs` at it, drop `"private"`, and publish.
+- Step 3 is done: the new repo, and the npm packages.
+  - `git filter-repo` in a fresh clone kept the history of `ic10-test/`, `ic10-test-vscode/`, this
+    plan and `CODE_REVIEW.md`, renamed into `packages/`. `repository`, `homepage` and `bugs` point
+    at it, and the fork is a submodule at `vendor/ic10`.
+  - CI runs checkout (with the submodule), install, typecheck, tests and the full build on a machine
+    without the game. Two tests had read logic type names from the game's descriptions: one now takes
+    them from the prefabs, and the hover check on a description runs only when there are
+    descriptions.
+  - Published to npm (2026-10-13): `@tasermonkey/ic10` 1.0.0 (ESM and CommonJS bundles; the UMD
+    bundle was dropped, nothing used it) and `@tasermonkey/ic10-bench` 1.0.0. Checked by installing
+    both from the registry into an empty project: the entry points import and the `ic10-bench` CLI
+    runs.
+  - The extension: tried from its `.vsix` in a new project against the published packages. Its
+    README now installs from the Marketplace and Open VSX; building from source and publishing are
+    in its CONTRIBUTING.md. Publishing it is next.
 - Step 4: this workspace installs `@tasermonkey/ic10-bench` from npm and drops the submodule and the
   two packages.
 

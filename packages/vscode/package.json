@@ -6,6 +6,11 @@
 	"private": true,
 	"type": "module",
 	"publisher": "tasermonkey",
+	"icon": "images/icon.png",
+	"galleryBanner": {
+		"color": "#13294b",
+		"theme": "dark"
+	},
 	"license": "AGPL-3.0-or-later",
 	"homepage": "https://github.com/tasermonkey/ic10-bench/tree/main/packages/vscode#readme",
 	"repository": {
@@ -263,7 +268,7 @@
 	},
 	"scripts": {
 		"build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --sourcemap --outfile=dist/extension.cjs",
-		"vscode:package": "npm run build && vsce package --no-dependencies --out dist/ic10-bench.vsix"
+		"vscode:package": "npm run build && vsce package --no-dependencies --baseContentUrl https://github.com/tasermonkey/ic10-bench/blob/main/packages/vscode --baseImagesUrl https://github.com/tasermonkey/ic10-bench/raw/main/packages/vscode --out dist/ic10-bench.vsix"
 	},
 	"dependencies": {
 		"@vscode/debugadapter": "^1.68.0",

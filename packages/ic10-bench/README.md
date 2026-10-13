@@ -350,4 +350,16 @@ step a tick at a time. Tests need no changes.
 **Also exported**: `hash(name)` (the game's `HASH()`), `readScript`, `findScripts`, and the gas
 classes `Mixture` and `Reservoir` for working with gas outside a world.
 
+## Made with AI
+
+Much of this harness, its tests and its documentation was written with Claude, Anthropic's AI
+assistant, working under the author's direction, with the author reviewing the code and a lot of
+back-and-forth debugging and tweaking to get it right. The same goes for the
+[VS Code extension](https://github.com/tasermonkey/ic10-bench/tree/main/packages/vscode#readme).
+The emulator it runs on, [`@tasermonkey/ic10`](https://github.com/tasermonkey/ic10), is a fork of
+[Stationeers-ic/ic10](https://github.com/Stationeers-ic/ic10), brought up to date with the current
+game and corrected to follow more closely what the game does.
+
+Found something wrong? Please [open an issue](https://github.com/tasermonkey/ic10-bench/issues).
+
 Working on the harness itself? See [CONTRIBUTING.md](CONTRIBUTING.md).
