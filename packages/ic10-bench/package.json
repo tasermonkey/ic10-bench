@@ -1,6 +1,6 @@
 {
 	"name": "@tasermonkey/ic10-bench",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"type": "module",
 	"description": "Test harness for Stationeers IC10 scripts, built on the @tasermonkey/ic10 emulator (a fork of @stationeers-ic/ic10)",
 	"license": "AGPL-3.0-or-later",
