@@ -33,5 +33,10 @@ jobs:
         env:
           CI: "true"
 
+      - name: Run the emulator's own tests
+        run: npm run test:fork
+        env:
+          CI: "true"
+
       - name: Build
         run: npm run build

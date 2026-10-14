@@ -10,6 +10,33 @@
 /** Bumped when a message changes shape. The agent says its version first, in `hello`. */
 export const PROTOCOL_VERSION = 3;
 
+/** IC10 names both sides read in a script: a device pin (`d0`…`d5`), a pin or the housing (`db`), a register. */
+export const DEVICE_PIN = /^d[0-5]$/;
+export const PIN = /^(d[0-5]|db)$/;
+export const REGISTER = /^(r(1[0-7]|[0-9])|sp|ra)$/;
+
+/** A message as one line of the protocol. */
+export function ndjsonLine(message: unknown): string {
+	return `${JSON.stringify(message)}\n`;
+}
+
+/**
+ * Reads the protocol from a stream of text: feed it each chunk as it comes (with the socket's
+ * encoding set to utf8), and it calls `onMessage` with each complete line's message, skipping blank lines.
+ */
+export function ndjsonReader<T>(onMessage: (message: T) => void): (chunk: string) => void {
+	let buffer = "";
+	return (chunk) => {
+		buffer += chunk;
+		let newline: number;
+		while ((newline = buffer.indexOf("\n")) >= 0) {
+			const line = buffer.slice(0, newline).trim();
+			buffer = buffer.slice(newline + 1);
+			if (line) onMessage(JSON.parse(line) as T);
+		}
+	};
+}
+
 /** A chip, which VS Code shows as a thread. */
 export interface ThreadInfo {
 	id: number;

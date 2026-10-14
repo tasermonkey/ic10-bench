@@ -1,5 +1,5 @@
 /**
- * Builds the packaged device catalogue into generated/ (plan §6): catalog.json, and
+ * Builds the packaged device catalogue into generated/: catalog.json, and
  * prefab-props.ts, the `GamePrefabProps` that `sim().device()` is checked against.
  *
  *   npm run catalog:build      (node --conditions=source tools/catalog-build.ts)

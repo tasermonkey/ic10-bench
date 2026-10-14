@@ -1,7 +1,7 @@
 import { connect, type Socket } from "node:net";
 import { DebugAgent, type Transport } from "./agent.ts";
 import { setDefaultDebugGate } from "./gate.ts";
-import type { AdapterMessage, AgentMessage } from "./protocol.ts";
+import { type AdapterMessage, type AgentMessage, ndjsonLine, ndjsonReader } from "./protocol.ts";
 
 /** A debug agent connected to the adapter, and how to let go of it. */
 export interface Attached {
@@ -52,20 +52,11 @@ export async function attachDebugger(address: string): Promise<Attached> {
 export function socketTransport(socket: Socket): Transport {
 	return {
 		send: (message: AgentMessage) => {
-			if (!socket.destroyed) socket.write(`${JSON.stringify(message)}\n`);
+			if (!socket.destroyed) socket.write(ndjsonLine(message));
 		},
 		onMessage: (handler) => {
-			let buffer = "";
 			socket.setEncoding("utf8");
-			socket.on("data", (chunk: string) => {
-				buffer += chunk;
-				let newline: number;
-				while ((newline = buffer.indexOf("\n")) >= 0) {
-					const line = buffer.slice(0, newline).trim();
-					buffer = buffer.slice(newline + 1);
-					if (line) handler(JSON.parse(line) as AdapterMessage);
-				}
-			});
+			socket.on("data", ndjsonReader<AdapterMessage>(handler));
 		},
 	};
 }

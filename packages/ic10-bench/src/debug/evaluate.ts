@@ -1,13 +1,14 @@
+import { parseLiteral } from "@tasermonkey/ic10-lint";
 import type { ChipHandle } from "../world/world.ts";
-
-const PIN = /^(d[0-5]|db)$/;
+import { PIN } from "./protocol.ts";
 const COMPARISON = /^(.+?)\s*(==|!=|>=|<=|>|<)\s*(.+)$/;
 const STACK = /^stack\[\s*(.+?)\s*\]$/;
 const MEMORY = /^(.+?)\.stack\[\s*(.+?)\s*\]$/;
 
 /**
  * The value of a name as a chip sees it, for breakpoint conditions, hovers and the debug console:
- * a number (`5`, `-1.5`, `$1488`, `%101`), a register or alias (`r15`, `Stage`, `sp`), a stack
+ * a number as the emulator reads it (`5`, `-1.5`, `$1488`, `%101`, `HASH("…")`, `Color.Green`), a
+ * register or alias (`r15`, `Stage`, `sp`), a stack
  * entry (`stack[3]`, `stack[sp]`), an entry in a device's memory as `put`/`get` address it
  * (`d0.stack[2]`: a housing's is its chip's stack), a define or label, or a device property by pin, device alias or
  * key (`d0.On`, `vent.On`, `db.Setting`), or any other world path (`coolant.Temperature`). Throws
@@ -15,7 +16,7 @@ const MEMORY = /^(.+?)\.stack\[\s*(.+?)\s*\]$/;
  */
 export function evaluate(chip: ChipHandle, expression: string): number {
 	const expr = expression.trim();
-	const number = parseNumber(expr);
+	const number = parseLiteral(expr);
 	if (number !== undefined) return number;
 	if (chip.hasRegister(expr)) return chip.reg(expr);
 	const entry = STACK.exec(expr);
@@ -104,13 +105,4 @@ export function deviceKeyFor(chip: ChipHandle, name: string): string | undefined
 		return key;
 	}
 	return chip.world.listDevices().some((d) => d.key === name) ? name : undefined;
-}
-
-function parseNumber(text: string): number | undefined {
-	if (/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(text)) return Number(text);
-	const hex = /^\$([0-9a-f]+)$/i.exec(text);
-	if (hex) return Number.parseInt(hex[1]!, 16);
-	const bin = /^%([01]+)$/.exec(text);
-	if (bin) return Number.parseInt(bin[1]!, 2);
-	return undefined;
 }

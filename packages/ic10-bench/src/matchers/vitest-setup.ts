@@ -11,7 +11,9 @@
 import { afterAll, expect, type MatcherState } from "vitest";
 import {
 	type AutoYieldOptions,
+	type BlinkOptions,
 	checkAutoYieldAtMost,
+	checkBlink,
 	checkHalted,
 	checkLine,
 	checkNeverAutoYield,
@@ -22,6 +24,7 @@ import {
 	checkRegisterCloseTo,
 	checkStack,
 	checkStackAt,
+	checkStayAt,
 	checkToggleAtMost,
 	type HaltExpectation,
 	type MatchContext,
@@ -66,6 +69,12 @@ export const ic10Matchers = {
 	},
 	toToggleAtMost(this: MatcherState, received: unknown, n: number) {
 		return checkToggleAtMost(received, n, context(this));
+	},
+	toBlink(this: MatcherState, received: unknown, options?: BlinkOptions) {
+		return checkBlink(received, options, context(this));
+	},
+	toStayAt(this: MatcherState, received: unknown, expected: unknown) {
+		return checkStayAt(received, expected, context(this));
 	},
 	toNeverAutoYield(this: MatcherState, received: unknown) {
 		return checkNeverAutoYield(received, context(this));

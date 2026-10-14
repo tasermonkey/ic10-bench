@@ -1,3 +1,6 @@
+/** The game's tick, in seconds: the default `tickSeconds`, and what the models' per-tick rates are given for. */
+export const GAME_TICK_SECONDS = 0.5;
+
 /** Ticks needed to cover `seconds` of game time (rounded up, so a wait is never cut short). */
 export function secondsToTicks(seconds: number, tickSeconds: number): number {
 	if (!(seconds >= 0)) throw new Error(`invalid number of seconds: ${seconds}`);

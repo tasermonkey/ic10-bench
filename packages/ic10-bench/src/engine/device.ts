@@ -17,6 +17,17 @@ export function isCatalogued(prefab: string): boolean {
 	return Object.hasOwn(DevicesByPrefabName, prefab);
 }
 
+/** Hashes {@link registerModPrefab} added to the emulator's table: not the game's own data. */
+const registered = new Set<number>();
+
+/**
+ * The emulator's game data for every device it has, without the mods' devices (and the Logic
+ * Mirror) that worlds have added to its table.
+ */
+export function emulatorDevices(): DeviceType[] {
+	return Object.values(DEVICES as Record<number, DeviceType>).filter((d) => !registered.has(d.PrefabHash ?? Number.NaN));
+}
+
 let prefabsWithData: Set<string> | undefined;
 
 /**
@@ -25,7 +36,7 @@ let prefabsWithData: Set<string> | undefined;
  * which then gets exactly their logic types from the data.
  */
 export function hasDeviceData(prefab: string): boolean {
-	prefabsWithData ??= new Set(Object.values(DEVICES as Record<number, DeviceType>).map((d) => d.PrefabName ?? ""));
+	prefabsWithData ??= new Set(emulatorDevices().map((d) => d.PrefabName ?? ""));
 	return prefabsWithData.has(prefab);
 }
 
@@ -37,6 +48,7 @@ export function hasDeviceData(prefab: string): boolean {
 export function registerModPrefab(prefab: CatalogPrefab): void {
 	const table = DEVICES as Record<number, DeviceType>;
 	if (table[prefab.hash]) return;
+	registered.add(prefab.hash);
 	const permissions = (access: string) => [...(access.includes("r") ? ["Read"] : []), ...(access.includes("w") ? ["Write"] : [])];
 	table[prefab.hash] = {
 		id: prefab.hash,

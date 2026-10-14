@@ -357,18 +357,57 @@ export function checkOnlyChange(
 
 /** A recorded value changed at most `n` times (see `world.record`). */
 export function checkToggleAtMost(subject: unknown, n: number, ctx: MatchContext = {}): MatchResult {
-	if (!(subject instanceof Recording)) {
-		throw new TypeError(`toToggleAtMost: expected a recording, e.g. expect(world.record("vent.On")), but got ${describeSubject(subject)}`);
-	}
-	const changes = subject.changes;
-	const first = subject.ticks[0] ?? 0;
-	const last = subject.ticks.at(-1) ?? 0;
+	const recording = requireRecording(subject, "toToggleAtMost");
+	const changes = recording.changes;
+	const first = recording.ticks[0] ?? 0;
+	const last = recording.ticks.at(-1) ?? 0;
 	return result(
 		changes <= n,
 		() =>
-			`expected "${subject.path}" ${not(ctx)}to change at most ${n} times, but it changed ${changes} times over ticks ${first}–${last}`,
-		() => `timeline (value at the end of each tick, where it changed):\n${formatTimeline(subject)}`,
+			`expected "${recording.path}" ${not(ctx)}to change at most ${n} times, but it changed ${changes} times over ticks ${first}–${last}`,
+		() => `timeline (value at the end of each tick, where it changed):\n${formatTimeline(recording)}`,
 		{ actual: changes, expected: n },
+	);
+}
+
+function requireRecording(subject: unknown, matcher: string): Recording {
+	if (subject instanceof Recording) return subject;
+	throw new TypeError(`${matcher}: expected a recording, e.g. expect(world.record("light.On")), but got ${describeSubject(subject)}`);
+}
+
+export interface BlinkOptions {
+	/** How many changes count as blinking. Default 2: on, off and on again (or the reverse). */
+	times?: number;
+}
+
+/** A recorded value went back and forth: it changed at least twice (or `times`). */
+export function checkBlink(subject: unknown, options: BlinkOptions = {}, ctx: MatchContext = {}): MatchResult {
+	const recording = requireRecording(subject, "toBlink");
+	const times = options.times ?? 2;
+	const changes = recording.changes;
+	return result(
+		changes >= times,
+		() =>
+			ctx.isNot
+				? `expected "${recording.path}" not to blink, but it changed ${changes} times`
+				: `expected "${recording.path}" to blink (change at least ${times} times), but it changed ${changes} times over ${recording.values.length} samples`,
+		() => `timeline (value at the end of each tick, where it changed):\n${formatTimeline(recording)}`,
+		{ actual: changes, expected: times },
+	);
+}
+
+/** A recorded value was `expected` at every sample (`expect.closeTo` works). */
+export function checkStayAt(subject: unknown, expected: unknown, ctx: MatchContext = {}): MatchResult {
+	const recording = requireRecording(subject, "toStayAt");
+	const equals = equalsOf(ctx);
+	const off = recording.values.findIndex((v) => !equals(v, expected));
+	return result(
+		off < 0,
+		() =>
+			ctx.isNot
+				? `expected "${recording.path}" not to stay at ${show(expected)}, but it did for all ${recording.values.length} samples`
+				: `expected "${recording.path}" to stay at ${show(expected)}, but it was ${show(recording.values[off])} at tick ${recording.ticks[off]}`,
+		() => `timeline (value at the end of each tick, where it changed):\n${formatTimeline(recording)}`,
 	);
 }
 

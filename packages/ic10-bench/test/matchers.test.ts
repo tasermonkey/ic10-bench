@@ -206,6 +206,38 @@ describe("toToggleAtMost", () => {
 	});
 });
 
+describe("toBlink / toStayAt", () => {
+	it("toBlink passes once a recording has gone back and forth, and shows the timeline when it hasn't", async () => {
+		const world = await oneChip("loop:\nseqz r0 r0\ns d0 On r0\nyield\nj loop");
+		const on = world.record("vent.On");
+		await world.runTicks(1);
+		expect(on).not.toBlink(); // one change: on, but not off again yet
+		await world.runTicks(3);
+		expect(on).toBlink();
+		expect(on).toBlink({ times: 4 });
+		const message = failure(() => expect(on).toBlink({ times: 5 }));
+		expect(message).toContain('expected "vent.On" to blink (change at least 5 times), but it changed 4 times');
+		expect(message).toContain("tick     0: 0\n  tick     1: 1");
+	});
+
+	it("toStayAt passes when every sample has the value, and names the first that doesn't", async () => {
+		const world = await oneChip("s d0 On 1\nyield\nyield\ns d0 On 0\nloop:\nyield\nj loop");
+		const on = world.record("vent.On");
+		await world.runTicks(1);
+		const steady = world.record("vent.On");
+		await world.runTicks(1);
+		expect(steady).toStayAt(1);
+		await world.runTicks(2);
+		expect(on).not.toStayAt(1);
+		expect(failure(() => expect(on).toStayAt(1))).toContain('expected "vent.On" to stay at 1, but it was 0 at tick 0');
+		expect(world.record("vent.Mode")).toStayAt(expect.closeTo(0, 5));
+	});
+
+	it("says what it wanted when given something else", () => {
+		expect(() => expect(5).toBlink()).toThrow(/toBlink: expected a recording/);
+	});
+});
+
 describe("toNeverAutoYield / toAutoYieldAtMost", () => {
 	it("passes for a loop that yields", async () => {
 		const world = await oneChip(COUNTER);

@@ -12,6 +12,7 @@ emulator that follows the game's rules (128 lines a tick, errors halt the chip, 
 |---|---|
 | [`@tasermonkey/ic10-bench`](packages/ic10-bench/) | The test harness, from npm. Start here: its README walks through setting up a project. |
 | [IC10 Bench for VS Code](packages/vscode/) | The debugger: breakpoints in `.ic10` files, registers, stack and devices while a test runs. |
+| [`@tasermonkey/ic10-lint`](packages/ic10-lint/) | Static checks, with no tests to write: the game's size limits, scripts that won't load, batch instructions against the devices, common mistakes. A command line for CI, and the checks behind the harness's `describeScriptChecks()`. |
 
 The emulator is [`@tasermonkey/ic10`](https://github.com/tasermonkey/ic10), a fork of
 [Stationeers-ic/ic10](https://github.com/Stationeers-ic/ic10) changed to follow the game more
@@ -29,5 +30,4 @@ npm test
 ```
 
 The emulator is a git submodule (`vendor/ic10`), so the harness runs against its source. Each
-package's CONTRIBUTING.md covers its internals; [TEST_FRAMEWORK_PLAN.md](TEST_FRAMEWORK_PLAN.md) is
-the design and its history.
+package's CONTRIBUTING.md covers its internals.

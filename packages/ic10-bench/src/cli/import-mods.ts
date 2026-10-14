@@ -11,11 +11,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
-import { DEVICES } from "@tasermonkey/ic10";
 import type { CatalogPrefab } from "../catalog/catalog.ts";
 import { stationpediaDir, workshopDir } from "../catalog/game-paths.ts";
 import { ownModsFile, readInstalledMods } from "../catalog/mods.ts";
 import { logicDifferences, type StationpediaPage, stationpediaPrefab } from "../catalog/stationpedia.ts";
+import { emulatorDevices } from "../engine/device.ts";
 import { projectPaths } from "../project.ts";
 
 /** Thrown when there's no export to read; the CLI prints its message alone. */
@@ -32,7 +32,7 @@ export async function importMods(folder?: string, root?: string): Promise<string
 	}
 	const stationpedia = JSON.parse(readFileSync(join(dir, "Stationpedia.json"), "utf8")) as { version: string; pages: StationpediaPage[] };
 
-	const emulator = new Map(Object.values(DEVICES).map((d) => [d.PrefabName!, (d.logics ?? []).map((l) => l.name)]));
+	const emulator = new Map(emulatorDevices().map((d) => [d.PrefabName!, (d.logics ?? []).map((l) => l.name)]));
 	const exported = stationpedia.pages.map(stationpediaPrefab).filter((p): p is CatalogPrefab => p !== undefined);
 	const mods = exported.filter((p) => !emulator.has(p.prefab)).sort((a, b) => a.prefab.localeCompare(b.prefab));
 

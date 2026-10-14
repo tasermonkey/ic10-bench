@@ -1,5 +1,5 @@
 /**
- * The Logic Mirror (plan §5.4): a device on one data network that stands in for a target device on
+ * The Logic Mirror: a device on one data network that stands in for a target device on
  * another. Neither the emulator nor the Stationpedia export gives it logic types; its behaviour is
  * the game's `LogicMirror` (read from Assembly-CSharp.dll, 2026-10-11), which overrides only
  * CanLogicRead, GetLogicValue, CanLogicWrite and SetLogicValue, each passed to the target:
@@ -11,7 +11,7 @@
  *   Mirror, not the target, and the target's ID isn't on the mirror's network.
  */
 import { type Device, ErrorSeverity, Ic10Error } from "@tasermonkey/ic10";
-import { CustomDevice, registerModPrefab } from "./device.ts";
+import { CustomDevice, hash, registerModPrefab } from "./device.ts";
 
 export const MIRROR_PREFAB = "StructureLogicMirror";
 
@@ -34,7 +34,7 @@ export class LogicMirror extends CustomDevice {
 		// instructions go through the hooks below.
 		registerModPrefab({
 			prefab: MIRROR_PREFAB,
-			hash: 2096189278, // HASH("StructureLogicMirror"), as the Stationpedia export has it
+			hash: hash(MIRROR_PREFAB),
 			title: "Logic Mirror",
 			logic: { PrefabHash: "r", ReferenceId: "r" },
 			slots: [],

@@ -1,4 +1,5 @@
 import { exchangeHeat } from "../atmos/mixture.ts";
+import { GAME_TICK_SECONDS } from "../scheduler/time.ts";
 import type { WorldModel } from "../world/models.ts";
 
 export interface HeatExchangeOptions {
@@ -19,7 +20,7 @@ export function heatExchange(a: string, b: string, options: HeatExchangeOptions)
 	if (!(fraction >= 0 && fraction <= 1)) throw new Error(`heatExchange: fraction must be 0 to 1, got ${fraction}`);
 	return (dt, world) => {
 		// Compounded per game tick, so a different tick length gives the same cooling over time.
-		const f = 1 - (1 - fraction) ** (dt / 0.5);
+		const f = 1 - (1 - fraction) ** (dt / GAME_TICK_SECONDS);
 		exchangeHeat(world.atmosphere(a), world.atmosphere(b), f);
 	};
 }

@@ -1,5 +1,5 @@
 /**
- * The catalogue lookups behind the `ic10-bench` command (plan §6, use 4). Pure functions from the
+ * The catalogue lookups behind the `ic10-bench` command. Pure functions from the
  * catalogue to text, so they can be tested without a terminal.
  */
 import type { Access, Catalog, CatalogPrefab } from "../catalog/catalog.ts";

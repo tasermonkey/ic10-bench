@@ -32,6 +32,8 @@ export {
 	prefabInfo,
 } from "./catalog/catalog.ts";
 export { type BatchOpCatalog, type BatchOpFinding, type BatchOpProblem, checkBatchOps } from "./lint/batch-ops.ts";
+export { Color, LedMode, VentMode } from "./engine/constants.ts";
+export { press } from "./world/press.ts";
 export * from "./matchers/checks.ts";
 // Also adds the matchers to Vitest's `expect` types (see matchers/types.ts).
 export type { Ic10Matchers } from "./matchers/types.ts";
@@ -80,6 +82,7 @@ export {
 } from "./models/schedules.ts";
 export {
 	type DeviceOptions,
+	type DeviceSpec,
 	type HousingOptions,
 	type KnownPrefab,
 	type MirrorOptions,

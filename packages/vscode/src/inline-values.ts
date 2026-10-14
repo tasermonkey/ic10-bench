@@ -7,6 +7,7 @@
  *   `peek` reads. Elsewhere `sp` has moved on, so those would point at the wrong entry.
  * The values are the debugger's, now. No `vscode` import, so it can be tested on its own.
  */
+import { PIN, REGISTER } from "@tasermonkey/ic10-bench/debug-protocol";
 
 /** Where on a line a value is shown for (`end` is exclusive). */
 interface Place {
@@ -30,8 +31,6 @@ export interface InlineText extends Place {
 	text: string;
 }
 
-const REGISTER = /^(r(1[0-7]|[0-9])|sp|ra)$/;
-const PIN = /^(d[0-5]|db)$/;
 const ALIAS = /^\s*alias\s+(\S+)\s+(\S+)/;
 /** Instructions with a device and logic type: where they are among the arguments. */
 const DEVICE_PROPERTY: Record<string, number> = { l: 1, s: 0 };

@@ -6,21 +6,25 @@
  *   ic10-bench import-mods [<folder>]      read mods' devices from the Stationpedia export into ic10-mods/
  *   ic10-bench props <prefab | part of a name | hash>
  *   ic10-bench logic <logic type | part of one>
+ *   ic10-bench lint [<paths>] [options]    @tasermonkey/ic10-lint, with the project's catalogue
  *
  * Lookups read the project's catalogue, or the packaged one if `catalog` hasn't been run.
  */
 import { resolve } from "node:path";
+import { runCli, wantsColor } from "@tasermonkey/ic10-lint";
 import { loadCatalog } from "../src/catalog/catalog.ts";
 import { buildProjectCatalog } from "../src/cli/catalog.ts";
 import { importMods, NoExportError } from "../src/cli/import-mods.ts";
 import { describeLogic, describePrefab, findLogicTypes, findPrefabs, listPrefabs } from "../src/cli/lookup.ts";
-import { ROOT_ENV } from "../src/project.ts";
+import { projectRoot, ROOT_ENV } from "../src/project.ts";
 
 const USAGE = `Usage:
   ic10-bench catalog                                  build this project's device catalogue and prefab types
   ic10-bench import-mods [<Stationpedia folder>]      read your mods' devices from the Stationpedia export
   ic10-bench props <prefab | part of a name | hash>   a prefab's logic types, modes and slots
   ic10-bench logic <logic type | part of one>          what a logic type is, and which prefabs have it
+  ic10-bench lint [<folder | file.ic10> ...]          check scripts without running them (ic10-lint,
+                                                      with this project's devices); --help for options
 
 Options:
   --project <folder>   the project's folder (default: the current one)`;
@@ -62,6 +66,15 @@ try {
 	else if (command === "import-mods") console.log((await importMods(rest[0])).join("\n"));
 	else if (command === "props" && query) props(query);
 	else if (command === "logic" && query) logic(query);
+	else if (command === "lint") {
+		process.exitCode = await runCli(rest, {
+			cwd: projectRoot(),
+			out: (text) => console.log(text),
+			catalog: loadCatalog(),
+			name: "ic10-bench lint",
+			color: wantsColor(),
+		});
+	}
 	else {
 		console.log(USAGE);
 		process.exitCode = command === "--help" || command === "-h" ? 0 : 1;

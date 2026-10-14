@@ -3,7 +3,7 @@
  * so any file that imports `@tasermonkey/ic10-bench` brings these into the project's types; the
  * setup file (`@tasermonkey/ic10-bench/vitest`) installs the matchers themselves.
  */
-import type { AutoYieldOptions, HaltExpectation, NoErrorsOptions, OnlyChangeOptions } from "./checks.ts";
+import type { AutoYieldOptions, BlinkOptions, HaltExpectation, NoErrorsOptions, OnlyChangeOptions } from "./checks.ts";
 
 export interface Ic10Matchers<R = unknown> {
 	/** A device (or a chip's housing) has these property values; others aren't checked. */
@@ -26,6 +26,10 @@ export interface Ic10Matchers<R = unknown> {
 	toOnlyChange(paths: readonly string[], options?: OnlyChangeOptions): R;
 	/** A recording (`world.record(...)`) changed value at most `n` times. */
 	toToggleAtMost(n: number): R;
+	/** A recording went back and forth: changed at least twice (or `times`). For a blinking light. */
+	toBlink(options?: BlinkOptions): R;
+	/** A recording had this value at every sample (`expect.closeTo` works). */
+	toStayAt(expected: unknown): R;
 	/** A chip never ran out of lines in a tick: every loop path reaches a `yield` or `sleep`. */
 	toNeverAutoYield(): R;
 	/** A chip auto-yielded at most `n` times, in total or in any window of `perTicks` ticks. */

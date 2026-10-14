@@ -18,6 +18,8 @@ import {
 	type BreakpointSpec,
 	type Command,
 	type DataBreakpointSpec,
+	ndjsonLine,
+	ndjsonReader,
 	PROTOCOL_VERSION,
 	type Requests,
 	type StopReason,
@@ -564,25 +566,19 @@ class AgentLink {
 		this.socket = socket;
 		socket.setNoDelay(true);
 		socket.setEncoding("utf8");
-		let buffer = "";
-		socket.on("data", (chunk: string) => {
-			buffer += chunk;
-			let newline: number;
-			while ((newline = buffer.indexOf("\n")) >= 0) {
-				const line = buffer.slice(0, newline).trim();
-				buffer = buffer.slice(newline + 1);
-				if (!line) continue;
-				const message = JSON.parse(line) as AgentMessage;
+		socket.on(
+			"data",
+			ndjsonReader<AgentMessage>((message) => {
 				if (message.type === "event") {
 					onEvent(message);
-					continue;
+					return;
 				}
 				const pending = this.pending.get(message.seq);
 				this.pending.delete(message.seq);
 				if (message.ok) pending?.resolve(message.result);
 				else pending?.reject(new Error(message.error));
-			}
-		});
+			}),
+		);
 		socket.on("close", () => {
 			for (const { reject } of this.pending.values()) reject(new Error("the test process has gone"));
 			this.pending.clear();
@@ -601,7 +597,7 @@ class AgentLink {
 			if (this.socket.destroyed) return reject(new Error("the test process has gone"));
 			this.pending.set(seq, { resolve: resolve as (result: unknown) => void, reject });
 			const message = { type: "request", seq, command, args } as AdapterMessage;
-			this.socket.write(`${JSON.stringify(message)}\n`);
+			this.socket.write(ndjsonLine(message));
 		});
 	}
 }

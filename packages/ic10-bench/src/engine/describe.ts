@@ -1,5 +1,5 @@
 /**
- * Clearer messages for the emulator's property errors (plan §6, use 2). The emulator names a device
+ * Clearer messages for the emulator's property errors. The emulator names a device
  * by its prefab hash and sometimes a logic type by its number: "Device -236516384 property 38 not
  * found". Each error keeps the device it came from, so the harness can say which device, by test
  * key, prefab and reference ID, and list what it does have.

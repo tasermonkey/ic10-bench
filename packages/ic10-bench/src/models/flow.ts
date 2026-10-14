@@ -1,16 +1,15 @@
-import { IDEAL_GAS_CONSTANT } from "../atmos/gases.ts";
+import { IDEAL_GAS_CONSTANT, ONE_ATMOSPHERE } from "../atmos/gases.ts";
 import type { GasParcel, Mixture } from "../atmos/mixture.ts";
+import { GAME_TICK_SECONDS } from "../scheduler/time.ts";
 import type { Port } from "../world/atmospheres.ts";
 import type { DeviceHandle } from "../world/world.ts";
 
-/** The game's tick, which the models' per-tick rates are given for. */
-export const GAME_TICK_SECONDS = 0.5;
-
 /**
- * The game's code default for a device's `pressurePerTick` (`DeviceAtmospherics`). Each prefab
- * can override it in the asset files, which the harness can't read, so models start from this.
+ * The game's code default for a device's `pressurePerTick` (`DeviceAtmospherics`): one
+ * atmosphere. Each prefab can override it in the asset files, which the harness can't read, so
+ * models start from this.
  */
-export const DEFAULT_PRESSURE_PER_TICK = 101.325;
+export const DEFAULT_PRESSURE_PER_TICK = ONE_ATMOSPHERE;
 
 /** The game's highest pressure in a gas pipe (`Chemistry.Limits.MAXPressureGasPipe`), kPa. */
 export const MAX_PIPE_PRESSURE = 60795;

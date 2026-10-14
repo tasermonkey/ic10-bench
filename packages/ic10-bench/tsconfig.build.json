@@ -4,6 +4,7 @@
 		"customConditions": [],
 		"noEmit": false,
 		"declaration": true,
+		"stripInternal": true,
 		"rewriteRelativeImportExtensions": true,
 		"rootDir": ".",
 		"outDir": "dist"

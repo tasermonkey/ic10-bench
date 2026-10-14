@@ -1,0 +1,7 @@
+{
+	"dir": "ic10",
+	"rules": { "unused": "warn" },
+	"overrides": {
+		"ic10/long.ic10": { "reason": "comments past line 128, kept for the test", "limits": { "lines": 131 } }
+	}
+}

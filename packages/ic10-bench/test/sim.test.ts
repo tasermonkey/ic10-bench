@@ -2,7 +2,17 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { type DebugGate, SimBudgetError, SimHaltError, SimRunError, sim } from "../src/index.ts";
+import {
+	Color,
+	type DebugGate,
+	LedMode,
+	press,
+	SimBudgetError,
+	SimHaltError,
+	SimRunError,
+	sim,
+	VentMode,
+} from "../src/index.ts";
 
 /** A world with one chip running `code`, pinned to nothing. */
 function oneChip(code: string, options: Parameters<typeof sim>[0] = {}) {
@@ -110,6 +120,50 @@ describe("sim() builder", () => {
 		["a line that doesn't parse", () => sim().housing("ic", { code: "move r0 1\n%%%" }), /"ic" line 1/],
 	])("rejects %s", async (_what, declare, error) => {
 		await expect(declare().build()).rejects.toThrow(error);
+	});
+});
+
+describe("devices(), press() and the game's enums", () => {
+	it("devices() adds each device as device() would", async () => {
+		const MACHINES = [
+			["lathe", "StructureAutolathe", "$1486"],
+			["bender", "StructureHydraulicPipeBender", "$2217"],
+		] as const;
+		const world = await sim({ debug: false })
+			.devices(MACHINES.map(([key, prefab, id]) => [key, prefab, { On: 1 }, { id, name: key }] as const))
+			.build();
+		expect(world.device("lathe")).toHaveProps({ On: 1 });
+		expect(world.device("lathe").idHex).toBe("$1486");
+		expect(world.device("bender").name).toBe("bender");
+		// @ts-expect-error The props are checked against each prefab, as device()'s are.
+		sim().devices([["x", "StructureWallLight", { Bogus: 1 }]]);
+	});
+
+	it("press() holds a button for one tick, so a chip reading it every tick sees one press", async () => {
+		const world = await sim({ debug: false })
+			.device("button", "StructureLogicButton")
+			.housing("ic", { code: "loop:\nl r1 d0 Activate\nadd r0 r0 r1\nyield\nj loop", pins: { d0: "button" } })
+			.build();
+		await world.runTicks(2);
+		press(world, "button");
+		expect(world.device("button")).toHaveProps({ Activate: 1 });
+		await world.runTicks(3);
+		expect(world.device("button")).toHaveProps({ Activate: 0 });
+		expect(world.chip("ic")).toHaveRegister("r0", 1);
+	});
+
+	it("press() takes another property, and its release can be cancelled", async () => {
+		const world = await sim({ debug: false }).device("switch", "StructureLogicSwitch").build();
+		const release = press(world, "switch", "Open");
+		release();
+		await world.runTicks(2);
+		expect(world.device("switch")).toHaveProps({ Open: 1 });
+	});
+
+	it("has the game's Color, vent Mode and LED display Mode values", () => {
+		expect([Color.Blue, Color.Green, Color.Red, Color.Yellow]).toEqual([0, 2, 4, 5]);
+		expect([VentMode.Outward, VentMode.Inward]).toEqual([0, 1]);
+		expect([LedMode.Default, LedMode.Power, LedMode.String]).toEqual([0, 2, 10]);
 	});
 });
 

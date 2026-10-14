@@ -2,11 +2,13 @@ import { resolve } from "node:path";
 import type { PrefabProps } from "../prefabs.ts";
 import { modPrefabs } from "../catalog/mods.ts";
 import { type DebugGate, getDefaultDebugGate } from "../debug/gate.ts";
+import { DEVICE_PIN } from "../debug/protocol.ts";
 import { buildEngine, type Engine, type EngineDeviceSpec, type EngineHousingSpec } from "../engine/build.ts";
 import { hasDeviceData, isCatalogued } from "../engine/device.ts";
 import { MIRROR_PREFAB } from "../engine/mirror.ts";
 import { parseId, type ReferenceId } from "../engine/ids.ts";
 import { ChipState, Scheduler } from "../scheduler/scheduler.ts";
+import { GAME_TICK_SECONDS } from "../scheduler/time.ts";
 import { readScript } from "../scripts.ts";
 import {
 	type AtmosphereEntry,
@@ -31,6 +33,11 @@ export type KnownPrefab = keyof PrefabProps;
 
 /** A known prefab's logic properties, read-only ones included (a test sets a sensor's readings). */
 export type PropsOf<P extends KnownPrefab> = PrefabProps[P];
+
+/** One device for `SimBuilder.devices()`: the arguments `device()` takes, with the props checked against the prefab. */
+export type DeviceSpec = {
+	[P in KnownPrefab]: readonly [key: string, prefab: P, props?: PropsOf<P>, options?: DeviceOptions & { custom?: false }];
+}[KnownPrefab];
 
 export interface SimOptions {
 	/** Lines a chip runs per tick before an automatic yield. Default 128, as in game. */
@@ -126,7 +133,6 @@ interface DeviceDecl {
 
 /** First automatic reference ID; later ones count up, skipping any given explicitly. */
 const FIRST_AUTO_ID = 0x1001;
-const PIN = /^d[0-5]$/;
 
 /** Declares a world, then builds it. Start with `sim()`. */
 export class SimBuilder {
@@ -156,6 +162,17 @@ export class SimBuilder {
 	device(key: string, prefab: string, props: Record<string, number> | undefined, options: DeviceOptions & { custom: true }): this;
 	device(key: string, prefab: string, props: Record<string, number> = {}, options: DeviceOptions = {}): this {
 		this.decls.push({ key, prefab, props, options });
+		return this;
+	}
+
+	/**
+	 * Several devices at once, each as `device()`'s arguments, for a table of them:
+	 * `.devices(MACHINES.map(([key, prefab, id]) => [key, prefab, { On: 1 }, { id }]))`.
+	 */
+	devices(list: readonly DeviceSpec[]): this {
+		for (const [key, prefab, props = {}, options = {}] of list) {
+			this.decls.push({ key, prefab, props: props as Record<string, number>, options });
+		}
 		return this;
 	}
 
@@ -252,7 +269,7 @@ export class SimBuilder {
 			if (!decl.housing) return base;
 			const pins: Record<string, number> = {};
 			for (const [pin, target] of Object.entries(decl.housing.pins ?? {})) {
-				if (!PIN.test(pin)) throw new Error(`sim: "${decl.key}": invalid pin "${pin}" (use d0–d5)`);
+				if (!DEVICE_PIN.test(pin)) throw new Error(`sim: "${decl.key}": invalid pin "${pin}" (use d0–d5)`);
 				if (target === undefined) continue;
 				const id = ids.get(target);
 				if (id === undefined) throw new Error(`sim: "${decl.key}" ${pin}: no device "${target}"`);
@@ -398,7 +415,7 @@ export function assembleWorld(
 	atmospheres: AtmosphereEntry[] = [],
 ): World {
 	const world = new World(entries, new EventQueue(), atmospheres, {
-		tickSeconds: opts.tickSeconds ?? 0.5,
+		tickSeconds: opts.tickSeconds ?? GAME_TICK_SECONDS,
 		maxTicks: opts.maxTicks ?? 10_000,
 		maxLinesPerRun: opts.maxLinesPerRun ?? 1_000_000,
 	});

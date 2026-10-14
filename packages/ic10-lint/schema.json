@@ -1,0 +1,68 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "https://unpkg.com/@tasermonkey/ic10-lint/schema.json",
+	"title": "ic10-lint.json",
+	"description": "The config for ic10-lint and IC10 Bench's script checks: https://github.com/tasermonkey/ic10-bench/tree/main/packages/ic10-lint#the-config-ic10-lintjson",
+	"type": "object",
+	"properties": {
+		"$schema": { "type": "string" },
+		"dir": {
+			"type": "string",
+			"description": "The folder of scripts to check when you don't name any, from this file's folder. Default ic10.",
+			"default": "ic10"
+		},
+		"rules": {
+			"$ref": "#/definitions/rules",
+			"description": "A severity for any rule."
+		},
+		"overrides": {
+			"type": "object",
+			"description": "By script path from this file's folder, with /. Each needs a reason.",
+			"additionalProperties": {
+				"type": "object",
+				"required": ["reason"],
+				"additionalProperties": false,
+				"properties": {
+					"reason": { "type": "string", "minLength": 1, "description": "Why this script is an exception." },
+					"limits": {
+						"type": "object",
+						"description": "Lets a script already over a limit stay that size, but not grow.",
+						"additionalProperties": false,
+						"properties": {
+							"lines": { "type": "integer", "minimum": 129, "description": "Over the game's 128 lines." },
+							"columns": { "type": "integer", "minimum": 91, "description": "Over the game's 90 characters a line of code." },
+							"bytes": { "type": "integer", "minimum": 4097, "description": "Over the game's 4096 characters, counted as the game counts them." }
+						}
+					},
+					"rules": {
+						"$ref": "#/definitions/rules",
+						"description": "Severities for this script only, over the project's."
+					}
+				}
+			}
+		}
+	},
+	"additionalProperties": false,
+	"definitions": {
+		"severity": {
+			"enum": ["error", "warn", "warning", "info", "off"]
+		},
+		"rules": {
+			"type": "object",
+			"additionalProperties": { "$ref": "#/definitions/severity" },
+			"properties": {
+				"max-lines": { "$ref": "#/definitions/severity", "description": "No more than the game's 128 lines (comments and blank lines count). Default error." },
+				"max-columns": { "$ref": "#/definitions/severity", "description": "No line past the game's 90 characters (only a comment past it is a warning). Default error." },
+				"max-bytes": { "$ref": "#/definitions/severity", "description": "No more than the game's 4096 characters, counted as the game counts them. Default error." },
+				"validate": { "$ref": "#/definitions/severity", "description": "The script loads in the emulator. Default error." },
+				"batch-ops": { "$ref": "#/definitions/severity", "description": "Batch instructions use logic types their prefab has. Needs a device catalogue. Default error." },
+				"hash-name": { "$ref": "#/definitions/severity", "description": "HASH() of a number, or of a prefab the game doesn't have. Default error." },
+				"relative-branch-to-label": { "$ref": "#/definitions/severity", "description": "A br* branch or jr given a label, which it takes as an offset. Default warn." },
+				"absolute-jump-number": { "$ref": "#/definitions/severity", "description": "A jump to a line number rather than a label. Default warn." },
+				"unused": { "$ref": "#/definitions/severity", "description": "An alias, define or label nothing uses. Default warn." },
+				"register-flow": { "$ref": "#/definitions/severity", "description": "A register read before it's written, or written and never read. Default off." },
+				"idle": { "$ref": "#/definitions/severity", "description": "IC10 Bench only: the script runs 50 ticks with nothing connected without halting. Default error." }
+			}
+		}
+	}
+}

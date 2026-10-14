@@ -6,8 +6,15 @@ Notes for changing the harness itself. To use it to test your own scripts, see t
 ## Layout rules
 
 This package is self-contained so it can move to its own repository later. Nothing in `src/` may
-import from outside this directory, except `@tasermonkey/ic10` (the emulator fork) and Node built-ins. Only
-`src/engine/` touches the emulator's internals.
+import from outside this directory, except `@tasermonkey/ic10` (the emulator fork),
+`@tasermonkey/ic10-lint` (the static checks, and the number parser) and Node built-ins. Only
+`src/engine/` uses the emulator's values and classes; elsewhere it's types only.
+
+`src/world/world.ts` is the `World`; its handles (`ChipHandle`, `DeviceHandle`, `MirrorHandle`,
+`SlotHandle`, `NetworkHandle`) are in `src/world/handles/`, and `world.ts` re-exports them.
+`src/debug/protocol.ts` has no imports (the extension bundles it), so the names both sides read
+in a script (`PIN`, `DEVICE_PIN`, `REGISTER`) and the NDJSON framing (`ndjsonLine`,
+`ndjsonReader`) live there.
 
 In a checkout it runs as TypeScript source on Node 24+, through the `"source"` export condition
 (`--conditions=source` for Node, `resolve.conditions` for Vitest, `customConditions` for tsc), the
@@ -22,8 +29,12 @@ declarations, and `.ts` imports rewritten to `.js`), and copies `generated/catal
 them. Node won't strip types inside `node_modules`, so the published package runs from `dist/`;
 each `exports` entry has `source` (the checkout), `types` and `default` (the build). `npm pack`
 builds first (`prepack`); the tarball holds `dist/` alone. The build resolves `@tasermonkey/ic10`
-without the source condition, so the emulator must be built (`npm run build:lib` in the fork) or
-installed from npm.
+and `@tasermonkey/ic10-lint` without the source condition, so they must be built first (the root
+`npm run build` does them in order) or installed from npm. `stripInternal` keeps `@internal`
+members out of the published types.
+
+`npm run coverage` (in the repo root) runs every package's tests with V8 coverage, into
+`coverage/` (git-ignored).
 
 To try the package as a user would: `npm pack`, then in an empty folder `npm i -D <the fork's
 tarball> <this tarball> vitest`, add a `vitest.config.ts` with `defineIc10Config()`, and run a test.
@@ -97,7 +108,7 @@ loadCatalog().logicTypes.On;                       // { text: "The current state
 
 ## Where the game behaviour comes from
 
-The Logic Mirror follows the game's code (plan §5.4). The gas core (`src/atmos/`) takes its
+The Logic Mirror follows the game's code. The gas core (`src/atmos/`) takes its
 constants and each gas's specific heat from the game's `Assembly-CSharp.dll` (`R` 8.3144, a pipe
 segment 10 L, a grid cell 8000 L). Each device model follows the game's code where it's in the DLL
 (`ActiveVent`, `RoboticArmDockHydroponics`, …); per-prefab figures (a device's `pressurePerTick`, its
@@ -161,3 +172,28 @@ says so and exits, or exits when the debugger goes away.
 `createEnv` (a lower-level world from emulator env JSON), `parseId` / `formatId`, and the plain
 functions under each matcher (`checkProps`, `checkRegister`, …, returning `{ pass, message }`) with
 the reports `chipReport`, `deviceReport` and `worldReport`.
+
+## Checking every script
+
+`src/checks.ts` (`./checks`) makes the per-script tests. It lints each script once with
+ic10-lint's `lintFile` (the project's `ic10-lint.json`, and `loadCatalog(root)` for the devices),
+and each test in `CHECK_GROUPS` takes its rules' findings: errors fail it, warnings go on it with
+`context.annotate`. The `idle` test (`checkIdle`) builds the script's housing alone and runs it for
+`IDLE_TICKS`; a halt for a missing device skips it. `ic10-bench lint` is ic10-lint's `runCli` with
+the project's catalogue. Its tests use the fixture project's `ic10/` and `ic10-lint.json`.
+
+## The emulator's device table
+
+`registerModPrefab` adds mods' devices (and the Logic Mirror) to the emulator's global `DEVICES`
+table when a world uses them, so they get exactly their logic types. It records what it added:
+`emulatorDevices()` and `hasDeviceData()` leave those out, so the next world, `ic10-bench
+catalog` and `import-mods` still see only the game's own data (`test/device-table.test.ts`).
+
+## For the next major version
+
+These change the public API, so they wait for 2.0:
+
+- `ChipHandle.errors` returns the emulator's `Ic10Error`s, and `DeviceHandle.raw` its `Device`, so
+  the fork's types are part of this package's API. Wrap them in the harness's own types (a message,
+  severity, line and code; and drop `raw`, or make it `@internal`).
+- `Halt.error` is an `Ic10Error` for the same reason.

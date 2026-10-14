@@ -4,8 +4,11 @@ import type { DeviceModel } from "../world/models.ts";
 import type { DeviceHandle } from "../world/world.ts";
 import { clamp, gameTicks, molesFor as moles } from "./flow.ts";
 
-/** An active vent's pipe-side limit in Inward mode: 500 atmospheres. */
-const MAX_PIPE_PRESSURE = 500 * ONE_ATMOSPHERE;
+/**
+ * An active vent's default pipe-side limit in Inward mode: 500 atmospheres. (Not the pipe's own
+ * limit, `MAX_PIPE_PRESSURE` in flow.ts.)
+ */
+const INWARD_PIPE_LIMIT = 500 * ONE_ATMOSPHERE;
 
 export interface VentOptions {
 	/**
@@ -50,7 +53,7 @@ function modeDefaults(kind: "active" | "powered", mode: number): Limits {
 	const inward = mode === 1;
 	return {
 		external: inward ? 0 : ONE_ATMOSPHERE,
-		internal: kind === "powered" ? (inward ? Infinity : 0) : inward ? MAX_PIPE_PRESSURE : 0,
+		internal: kind === "powered" ? (inward ? Infinity : 0) : inward ? INWARD_PIPE_LIMIT : 0,
 	};
 }
 

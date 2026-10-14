@@ -123,6 +123,8 @@ const world = await sim({ root: import.meta.dirname })
   error). To reach a device on another network, use a Logic Mirror (below).
 - A housing's prefab defaults to the IC housing; pass `prefab` for another device that takes a chip
   (an air conditioner, a hardsuit).
+- For a table of devices, `.devices([...])` takes a list of `device()`'s arguments:
+  `.devices(MACHINES.map(([key, prefab, id]) => [key, prefab, { On: 1 }, { id }]))`.
 
 **Mods' devices.** The console mod's parts (`ModularDevice…`), `StationBatteryNuclear` and
 mirror-image layouts such as `StructureAirConditionerMirrored` work like any other prefab. For a
@@ -176,6 +178,10 @@ world.device("ic").set("On", 0);                      // switch a housing off; o
 world.chip("ic").setReg("Stage", 2);
 ```
 
+To press a button, `press(world, "button")` sets its `Activate` to 1 for one tick, as a press is
+in game (`press(world, "lever", "Open")` for another property). A script that doesn't read the
+button every tick can miss it, as in game.
+
 Or schedule it. Events run at the start of a tick, before any chip:
 
 ```ts
@@ -212,11 +218,17 @@ Or use the matchers, which explain what went wrong when they fail:
 | `toHaveHalted({ line, error })` | chip | Halted, optionally on that line with a matching message. |
 | `toOnlyChange(paths, { since })` | world | Nothing else changed since a `world.snapshot()`. Paths can use aliases (`ic.Stage`) and `*`. |
 | `toToggleAtMost(n)` | `world.record("vent.On")` | The value changed at most `n` times. Good for catching flapping. |
+| `toBlink({ times = 2 })` | a recording | It changed at least twice: on, off and on again. For a warning light. |
+| `toStayAt(v)` | a recording | It was `v` at every sample. `expect.closeTo` works. |
 | `toNeverAutoYield()` | chip | Never ran out of its 128 lines in a tick. |
 | `toAutoYieldAtMost(n, { perTicks })` | chip | At most `n` automatic yields, in total or in any window. |
 
 A failure shows the chip's current line, its registers with their aliases, the stack, the devices on
 its pins, and the last lines it ran.
+
+To compare with the game's enums, `Color`, `VentMode` and `LedMode` have their values, by the names a
+script uses: `expect(world.device("light")).toHaveProps({ Color: Color.Green })`, `VentMode.Inward`,
+`LedMode.Power`.
 
 ## How it differs from what you might expect
 
@@ -350,9 +362,40 @@ npx ic10-bench props 489382030              # by hash
 npx ic10-bench logic PressureInternal       # what it is, and every prefab that has it
 ```
 
-`checkBatchOps(source, loadCatalog())` checks a script's `lb`/`sb`-style instructions against the
-devices they name, without running it: a logic type the prefab lacks, a write to a read-only one, a
-`HASH()` of a prefab that doesn't exist. Run it over every script in a test to catch those early.
+## Checking every script
+
+Some mistakes need no test written for them: a script too long for the chip, a line the game will
+cut, a misspelt alias, an `sb` of a logic type the device doesn't have, a loop with no `yield`. One
+test file checks all your scripts for them:
+
+```ts
+// tests/scripts.test.ts
+import { describeScriptChecks } from "@tasermonkey/ic10-bench/checks";
+
+describeScriptChecks();
+```
+
+For each `.ic10` file under `ic10/`, that makes these tests:
+
+| Test | Checks |
+|---|---|
+| `limits` | 128 lines, 90 characters a line and 4096 characters, counted as the game counts them |
+| `loads` | The script loads: syntax, argument counts, aliases, defines and labels |
+| `devices` | Batch instructions (`lb`, `sbn`, …) use logic types their devices have, mods' devices included; `HASH()` of a number or of a prefab that doesn't exist |
+| `style` | Relative branches given a label, jumps to line numbers, unused aliases, defines and labels |
+| `idle` | Built with nothing connected and run for 50 ticks, it doesn't halt or run out of lines (a loop with no `yield`). A script that reads a device it doesn't have is skipped ("needs devices"). |
+
+The checks are [@tasermonkey/ic10-lint](https://github.com/tasermonkey/ic10-bench/tree/main/packages/ic10-lint#readme)'s
+rules, and they read its config, `ic10-lint.json` in your project's folder: which folder the scripts
+are in, rules turned off or down to warnings (a test then passes and shows the finding as a
+warning), and overrides for a script that's already over a limit. `"idle": "warn"` or `"off"` in
+its `rules` sets the idle test's severity.
+
+`npx ic10-bench lint` runs the same checks (all but `idle`) from the command line, without Vitest:
+for CI or a pre-commit hook. It exits with 1 when there's an error. `npx ic10-bench lint init`
+writes a starting `ic10-lint.json`.
+
+`checkBatchOps(source, loadCatalog())` is the `devices` check on its own, for one script.
 
 ## Debugging
 
@@ -378,8 +421,9 @@ step a tick at a time. Tests need no changes.
 1,000,000), `tickSeconds` (default 0.5), `countNonInstructionLines` (default true),
 `restartClearsState` (default false).
 
-**Also exported**: `hash(name)` (the game's `HASH()`), `readScript`, `findScripts`, and the gas
-classes `Mixture` and `Reservoir` for working with gas outside a world.
+**Also exported**: `hash(name)` (the game's `HASH()`), `press(world, key, prop?)`, `Color`,
+`VentMode`, `LedMode`, `readScript`, `findScripts`, and the gas classes `Mixture` and `Reservoir`
+for working with gas outside a world. `@tasermonkey/ic10-bench/checks` has `describeScriptChecks`.
 
 ## Made with AI
 

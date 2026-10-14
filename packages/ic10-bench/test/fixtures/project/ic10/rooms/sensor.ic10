@@ -1,0 +1,7 @@
+alias Sensor d0
+alias Spare r9
+start:
+l r0 Sensor Temperature
+sb HASH("ModularDeviceFlipCoverSwitch") On 1
+yield
+j start

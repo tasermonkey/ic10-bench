@@ -1,5 +1,5 @@
 /**
- * The device and property catalogue (plan §6): which logic types and slots each prefab has, with
+ * The device and property catalogue: which logic types and slots each prefab has, with
  * Read/Write, and a description of every logic type.
  *
  * Two copies. The package ships generated/catalog.json: the emulator's prefabs, with no

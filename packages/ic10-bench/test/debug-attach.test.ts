@@ -5,7 +5,15 @@ import { createServer, type Server, type Socket } from "node:net";
 import { dirname, join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import { describe, expect, it } from "vitest";
-import { type AgentMessage, type Command, type EventMessage, PROTOCOL_VERSION, type Requests } from "../src/debug/protocol.ts";
+import {
+	type AgentMessage,
+	type Command,
+	type EventMessage,
+	ndjsonLine,
+	ndjsonReader,
+	PROTOCOL_VERSION,
+	type Requests,
+} from "../src/debug/protocol.ts";
 
 const FIXTURES = join(import.meta.dirname, "fixtures", "debug");
 const VITEST = join(dirname(createRequire(import.meta.url).resolve("vitest/package.json")), "vitest.mjs");
@@ -20,19 +28,15 @@ class SocketAdapter {
 
 	attach(socket: Socket): void {
 		this.socket = socket;
-		let buffer = "";
 		socket.setEncoding("utf8");
-		socket.on("data", (chunk: string) => {
-			buffer += chunk;
-			let newline: number;
-			while ((newline = buffer.indexOf("\n")) >= 0) {
-				const message = JSON.parse(buffer.slice(0, newline)) as AgentMessage;
-				buffer = buffer.slice(newline + 1);
+		socket.on(
+			"data",
+			ndjsonReader<AgentMessage>((message) => {
 				if (message.type === "response") this.pending.get(message.seq)?.(message);
 				else this.events.push(message);
 				for (const wake of this.waiters.splice(0)) wake();
-			}
-		});
+			}),
+		);
 	}
 
 	request<K extends Command>(command: K, args: Requests[K]["args"]): Promise<Requests[K]["result"]> {
@@ -43,7 +47,7 @@ class SocketAdapter {
 				if (m.ok) resolve(m.result as Requests[K]["result"]);
 				else reject(new Error(m.error));
 			});
-			this.socket.write(`${JSON.stringify({ type: "request", seq, command, args })}\n`);
+			this.socket.write(ndjsonLine({ type: "request", seq, command, args }));
 		});
 	}
 

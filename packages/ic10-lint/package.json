@@ -1,0 +1,56 @@
+{
+	"name": "@tasermonkey/ic10-lint",
+	"version": "1.0.0",
+	"type": "module",
+	"description": "Static checks for Stationeers IC10 scripts: the game's size limits, syntax, batch instructions against the device catalogue, and common mistakes",
+	"license": "AGPL-3.0-or-later",
+	"keywords": [
+		"stationeers",
+		"ic10",
+		"lint"
+	],
+	"homepage": "https://github.com/tasermonkey/ic10-bench/tree/main/packages/ic10-lint#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/tasermonkey/ic10-bench.git",
+		"directory": "packages/ic10-lint"
+	},
+	"bugs": {
+		"url": "https://github.com/tasermonkey/ic10-bench/issues"
+	},
+	"bin": {
+		"ic10-lint": "dist/bin/ic10-lint.js"
+	},
+	"exports": {
+		".": {
+			"source": "./src/index.ts",
+			"types": "./dist/src/index.d.ts",
+			"default": "./dist/src/index.js"
+		},
+		"./package.json": "./package.json",
+		"./schema.json": "./schema.json"
+	},
+	"files": [
+		"dist",
+		"schema.json"
+	],
+	"scripts": {
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"typecheck": "tsc -p tsconfig.json",
+		"build": "tsc -p tsconfig.build.json",
+		"prepack": "npm run build"
+	},
+	"dependencies": {
+		"@tasermonkey/ic10": "^1.0.1"
+	},
+	"engines": {
+		"node": ">=24"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"devDependencies": {
+		"vitest": "^5.0.3"
+	}
+}

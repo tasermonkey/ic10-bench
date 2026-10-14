@@ -20,6 +20,10 @@ function world(code: string, mirror: MirrorOptions = { target: "sensor" }) {
 }
 
 describe("Logic Mirror", () => {
+	it("has the Stationpedia export's prefab hash", () => {
+		expect(MIRROR).toBe(2096189278);
+	});
+
 	it("reads and writes its target through a pin", async () => {
 		const w = await world("l r0 d0 RatioNitrogen\ns d0 On 1\nyield", { target: "vent" });
 		w.mirror("mirror").setTarget("sensor");

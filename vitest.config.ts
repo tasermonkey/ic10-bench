@@ -4,7 +4,15 @@ import { defineIc10Config } from "./packages/ic10-bench/src/config.ts";
 
 export default defineConfig({
 	test: {
+		// `npm run coverage`: the packages' own code (the fork has its own tests, `npm run test:fork`).
+		coverage: {
+			provider: "v8",
+			include: ["packages/*/src/**/*.ts", "packages/*/bin/**/*.ts"],
+			reporter: ["text-summary", "html"],
+		},
 		projects: [
+			// The linter's own tests, with their fixture project (packages/ic10-lint/vitest.config.ts).
+			"packages/ic10-lint",
 			// The harness's own tests, with their fixture project (packages/ic10-bench/vitest.config.ts).
 			"packages/ic10-bench",
 			defineIc10Config({
