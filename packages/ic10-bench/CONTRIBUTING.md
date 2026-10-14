@@ -178,9 +178,15 @@ the reports `chipReport`, `deviceReport` and `worldReport`.
 `src/checks.ts` (`./checks`) makes the per-script tests. It lints each script once with
 ic10-lint's `lintFile` (the project's `ic10-lint.json`, and `loadCatalog(root)` for the devices),
 and each test in `CHECK_GROUPS` takes its rules' findings: errors fail it, warnings go on it with
-`context.annotate`. The `idle` test (`checkIdle`) builds the script's housing alone and runs it for
-`IDLE_TICKS`; a halt for a missing device skips it. `ic10-bench lint` is ic10-lint's `runCli` with
-the project's catalogue. Its tests use the fixture project's `ic10/` and `ic10-lint.json`.
+`context.annotate`. The `idle` test (`checkIdle`) builds the script's housing alone, then adds the
+stand-ins from `src/engine/stub.ts` to the built world: `connectStubs` puts a `StubDevice` on every
+pin and at each of `referenceIdLiterals(source)`, and `acceptEveryLogicType` sets prop hooks on the
+housing (the Logic Mirror's mechanism) so logic types it doesn't have read what was written, or 0.
+A `StubDevice` has no prefab data, so the emulator gives it every logic type; it overrides `slots`
+to make any slot index an empty slot. Its prefab hash isn't registered, so batch instructions never
+see one. It runs for `IDLE_TICKS`; a halt for a device still missing skips it. An override's
+`rules.idle` beats the project's. `ic10-bench lint` is ic10-lint's `runCli` with the project's
+catalogue. Its tests use the fixture project's `ic10/` and `ic10-lint.json`.
 
 ## The emulator's device table
 

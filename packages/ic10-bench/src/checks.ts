@@ -9,11 +9,12 @@
  *
  * For each script under the `dir` in the project's `ic10-lint.json` (default `ic10/`), one test per
  * group of @tasermonkey/ic10-lint's rules, checked against the project's device catalogue (mods
- * included), and an `idle` test that runs the script for 50 ticks with nothing connected. A rule
+ * included), and an `idle` test that runs the script for 50 ticks against stand-in devices. A rule
  * the config sets to "warn" passes, and its findings show as warnings on the test.
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import type { Housing } from "@tasermonkey/ic10";
 import {
 	type FileReport,
 	type Finding,
@@ -21,11 +22,14 @@ import {
 	lintFile,
 	loadConfig,
 	normalizeSeverity,
+	parseLiteral,
+	parseScript,
 	projectRelative,
 	type SeveritySetting,
 } from "@tasermonkey/ic10-lint";
 import { describe, expect, it, type TestContext } from "vitest";
 import { loadCatalog } from "./catalog/catalog.ts";
+import { acceptEveryLogicType, connectStubs } from "./engine/stub.ts";
 import { projectRoot } from "./project.ts";
 import { sim } from "./world/sim.ts";
 
@@ -40,8 +44,31 @@ export const CHECK_GROUPS: Record<string, readonly string[]> = {
 /** The idle run's length, and what it's for. */
 export const IDLE_TICKS = 50;
 
-/** The halts that mean the script needs a device the idle run doesn't build. */
+/**
+ * The halts that mean the script needs a device the idle run doesn't stand in for: one found by a
+ * reference ID the script works out rather than writes.
+ */
 const NEEDS_DEVICE = /Device on pin \d+ not found|must be device id|device (?:is )?not (?:found|set)/i;
+
+/** A whole number written in the script: decimal, `$hex` or `%binary`. */
+const WHOLE_NUMBER = /^(?:\d+|\$[0-9A-Fa-f_]+|%[01_]+)$/;
+
+/**
+ * @internal Every positive whole number the script writes, as possible reference IDs: the idle run
+ * puts a stand-in device at each, so `ld r0 $1488 On` finds one. `HASH("…")` and constants aren't
+ * included.
+ */
+export function referenceIdLiterals(source: string): number[] {
+	const ids = new Set<number>();
+	for (const line of parseScript(source).lines) {
+		for (const token of line.tokens.slice(1)) {
+			if (!WHOLE_NUMBER.test(token)) continue;
+			const value = parseLiteral(token);
+			if (value !== undefined && Number.isSafeInteger(value) && value > 0) ids.add(value);
+		}
+	}
+	return [...ids];
+}
 
 export interface ScriptChecksOptions {
 	/** The project's folder. Default: the project `defineIc10Config` set, or the working directory. */
@@ -63,8 +90,11 @@ export async function checkFindings(context: CheckContext, findings: Finding[]):
 }
 
 /**
- * @internal The idle test: build only the script's housing, run it, and fail on a halt or an
- * automatic yield. A halt for a missing device skips it instead.
+ * @internal The idle test: build the script's housing with a stand-in device on every pin and at
+ * every reference ID the script writes, let the housing answer any logic type (for a chip meant to
+ * sit in another device), run it, and fail on a halt or an automatic yield. Everything reads 0, so
+ * this runs the paths a script takes with its devices empty, off or at rest. A halt for a device it
+ * still can't find skips the test instead.
  */
 export async function checkIdle(context: CheckContext, root: string, file: string, severity: SeveritySetting): Promise<void> {
 	let world: Awaited<ReturnType<ReturnType<typeof sim>["build"]>>;
@@ -74,6 +104,9 @@ export async function checkIdle(context: CheckContext, root: string, file: strin
 		context.skip(`doesn't load, so it can't run (see "loads"): ${(error as Error).message}`);
 		return;
 	}
+	const housing = world.db("ic").raw as Housing;
+	connectStubs(housing, referenceIdLiterals(readFileSync(file, "utf8")));
+	acceptEveryLogicType(housing);
 	await world.runTicks(IDLE_TICKS);
 	const chip = world.chip("ic");
 	const halt = chip.halt;
@@ -102,7 +135,7 @@ export function describeScriptChecks(options: ScriptChecksOptions = {}): void {
 	const config = loadConfig(root, options.config);
 	const catalog = loadCatalog(root);
 	const scripts = existsSync(config.dir) ? findScripts(config.dir) : [];
-	const idleSeverity = config.rules.idle ?? "error";
+	const idleSeverity = (file: string) => config.overrides[projectRelative(root, file)]?.rules?.idle ?? config.rules.idle ?? "error";
 
 	const reports = new Map<string, Promise<FileReport>>();
 	const lintOnce = (file: string) => {
@@ -129,8 +162,9 @@ export function describeScriptChecks(options: ScriptChecksOptions = {}): void {
 						await checkFindings(context, findings.filter((f) => rules.includes(f.rule)));
 					});
 				}
-				if (normalizeSeverity(idleSeverity) !== "off") {
-					it("idle", (context) => checkIdle(context, root, file, idleSeverity));
+				const severity = idleSeverity(file);
+				if (normalizeSeverity(severity) !== "off") {
+					it("idle", (context) => checkIdle(context, root, file, severity));
 				}
 			});
 		}

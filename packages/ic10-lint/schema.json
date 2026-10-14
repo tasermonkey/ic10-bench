@@ -61,7 +61,7 @@
 				"absolute-jump-number": { "$ref": "#/definitions/severity", "description": "A jump to a line number rather than a label. Default warn." },
 				"unused": { "$ref": "#/definitions/severity", "description": "An alias, define or label nothing uses. Default warn." },
 				"register-flow": { "$ref": "#/definitions/severity", "description": "A register read before it's written, or written and never read. Default off." },
-				"idle": { "$ref": "#/definitions/severity", "description": "IC10 Bench only: the script runs 50 ticks with nothing connected without halting. Default error." }
+				"idle": { "$ref": "#/definitions/severity", "description": "IC10 Bench only: run for 50 ticks against stand-in devices (every pin, every reference ID it writes, a housing with every logic type), the script doesn't halt or run out of lines. Default error." }
 			}
 		}
 	}

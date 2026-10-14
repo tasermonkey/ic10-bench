@@ -383,13 +383,22 @@ For each `.ic10` file under `ic10/`, that makes these tests:
 | `loads` | The script loads: syntax, argument counts, aliases, defines and labels |
 | `devices` | Batch instructions (`lb`, `sbn`, …) use logic types their devices have, mods' devices included; `HASH()` of a number or of a prefab that doesn't exist |
 | `style` | Relative branches given a label, jumps to line numbers, unused aliases, defines and labels |
-| `idle` | Built with nothing connected and run for 50 ticks, it doesn't halt or run out of lines (a loop with no `yield`). A script that reads a device it doesn't have is skipped ("needs devices"). |
+| `idle` | Run for 50 ticks against stand-in devices, it doesn't halt or run out of lines (a loop with no `yield`). See below. |
 
 The checks are [@tasermonkey/ic10-lint](https://github.com/tasermonkey/ic10-bench/tree/main/packages/ic10-lint#readme)'s
 rules, and they read its config, `ic10-lint.json` in your project's folder: which folder the scripts
 are in, rules turned off or down to warnings (a test then passes and shows the finding as a
 warning), and overrides for a script that's already over a limit. `"idle": "warn"` or `"off"` in
-its `rules` sets the idle test's severity.
+its `rules` sets the idle test's severity, for every script or, in an override's `rules`, for one.
+
+The `idle` test builds no world of its own, so it stands in for every device the script could
+reach: one on each pin `d0`–`d5`, and one at each reference ID the script writes as a whole number
+(`$1488`, `797452`). A stand-in has every logic type and every slot, and they all read 0. The
+housing answers any logic type too, for a chip meant to sit in another device (an air conditioner,
+a suit) and read it through `db`; its own logic types keep their rules. So the test runs the paths
+a script takes with its devices empty, off or at rest, and a loop that waits on one of them without
+a `yield` fails it. A script that finds a device by an ID it works out (`ld r0 r1 On` with `r1`
+computed) can still miss one, and that skips the test ("needs devices").
 
 `npx ic10-bench lint` runs the same checks (all but `idle`) from the command line, without Vitest:
 for CI or a pre-commit hook. It exits with 1 when there's an error. `npx ic10-bench lint init`
