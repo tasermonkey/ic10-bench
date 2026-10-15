@@ -1,0 +1,63 @@
+# @tasermonkey/ic10-lint reference
+
+What each rule checks, and the config file. For how to install and run the linter, see the
+[README](README.md).
+
+## Rules
+
+Change a rule's severity to `"error"`, `"warn"`, `"info"` or `"off"` in the [config](#config), for
+every script or for one.
+
+| Rule | Default | What it checks |
+|---|---|---|
+| `max-lines` | error | No more than 128 lines. Comment and blank lines count: they're lines in the game too. Only a warning if just comments and blank lines are past line 128. |
+| `max-columns` | error | No line past 90 characters. Only a warning when it's a comment that goes past (the game cuts the comment short, which is harmless). |
+| `max-bytes` | error | No more than 4096 characters, counted the way the game does. It points at the line where the count passes 4096. |
+| `validate` | error | The script loads in the emulator: syntax, argument counts, aliases, defines and labels that don't exist (aliases are case sensitive). |
+| `batch-ops` | error | `lb`, `lbn`, `lbs`, `lbns`, `sb`, `sbn` and `sbs` use logic types their prefab has, with the right Read/Write, and name a prefab that exists. Needs a [device catalogue](README.md#the-device-catalogue). |
+| `hash-name` | error / warning | `HASH("5")`, which hashes the text "5", not the number, is an error. `HASH("StructureActivVent")`, a name shaped like a prefab that the game doesn't have, is a warning. |
+| `relative-branch-to-label` | warning | `brgt r0 r1 loop`: the `br*` branches and `jr` take an offset, so this jumps by the label's line number, not to it. |
+| `absolute-jump-number` | warning | `j 12` or `beqz r0 12`: the line moves when you add a line above it. Use a label. (`j 0` is fine.) |
+| `unused` | warning | An alias, define or label nothing uses. |
+| `register-flow` | off | A register read before anything writes it, or written and never read. Off by default: registers start at 0 (and keep their values across a restart), so a script can rely on that. |
+
+## Config
+
+`ic10-lint.json`, in your project's folder. Every part is optional. `npx ic10-lint init` writes one
+with every rule at its default severity.
+
+```json
+{
+  "$schema": "./node_modules/@tasermonkey/ic10-lint/schema.json",
+  "dir": "ic10",
+  "rules": { "unused": "off", "register-flow": "info" },
+  "overrides": {
+    "ic10/Battery Controller.ic10": {
+      "reason": "over the limits in the save; trim it later",
+      "limits": { "lines": 162, "bytes": 5135 }
+    },
+    "ic10/Debug.ic10": { "reason": "a debug chip", "rules": { "unused": "off" } }
+  }
+}
+```
+
+| Field | Default | What it does |
+|---|---|---|
+| `dir` | `ic10` | The folder of scripts to check when you don't name any. |
+| `rules` | each rule's default | A severity for any rule: `"error"`, `"warn"`, `"info"` or `"off"`. |
+| `overrides` | none | Settings for one script, by its path from the project's folder, with `/`. See below. |
+
+### Overrides
+
+| Field | What it does |
+|---|---|
+| `reason` | Required. Why the script is different. |
+| `limits` | Lets a script that's already over a limit (`lines`, `columns` or `bytes`) stay that size, but not grow. |
+| `rules` | Severities for this script only. |
+
+Past the number in `limits`, it's an error again. Shrink the script and you're told to lower the
+number; get it under the game's limit and you're told to remove the override. An override for a
+script that's gone is an error too, so they don't pile up.
+
+The config is a file and not comments in the scripts, because a comment costs a script lines and
+characters. IC10 Bench reads the same file (its `idle` check takes a severity here too).

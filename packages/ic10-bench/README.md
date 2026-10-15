@@ -5,6 +5,7 @@ run the script for some game ticks, and check what it did: which devices it chan
 registers, whether it halted. Scripts run on an IC10 emulator that follows the game's rules (128 lines
 a tick, errors halt the chip, and so on), in the [Vitest](https://vitest.dev/) test framework.
 
+## Example
 ```ts
 import { expect, it } from "vitest";
 import { sim } from "@tasermonkey/ic10-bench";
@@ -25,6 +26,7 @@ it("opens the vent when it gets hot outside", async () => {
 });
 ```
 
+## Sister Project
 There's also a [VS Code debugger](https://github.com/tasermonkey/ic10-bench/tree/main/packages/vscode#readme)
 for stepping through a script while its test runs.
 
@@ -32,30 +34,10 @@ for stepping through a script while its test runs.
 
 > Every Stationeer has a story about the divide by zero that turned their base into a fireball.
 
-More and more players are using AI to write their IC10 scripts, and AI does much better when it can
-quickly test the code it writes. I wanted a testing framework for IC10 that gives it that: these
-tests run with `npm test`, with no game needed, so an AI assistant can write a script, test it and
-fix it on its own. And when a test fails, the
-[VS Code debugger](https://github.com/tasermonkey/ic10-bench/tree/main/packages/vscode#readme) lets
-you step through the script line by line and see exactly what it did.
-
-I built it against my own scripts, and with the emulator and the tests, the AI found bugs in IC10
-code I'd been running in game. Some of them explained strange behaviour I'd seen and never tracked
-down: a suit controller switching its filtration on and off over and over, and a fabricator
-controller that only noticed some of its button presses (it checked one fabricator's buttons each
-tick, so it missed presses on the others). With a failing test for each, they were quick to fix.
-
-Testing in game is slow. You build the setup, wait for the right conditions (night, a low battery,
-a full tank), and watch. Most cases never get tried, and when something goes wrong you rarely see
-why. A test sets up those conditions in a few lines and checks the result in milliseconds. It runs
-every time you change the script, so a fix for one thing can't quietly break another, and it says
-what the script is supposed to do, for the next person who reads it, or for you in six months.
-Writing the test first, so it fails until the script is right, is a good way to fix a bug and
-know it's fixed.
-
-My hope is that IC10 Bench makes that cheap enough to be worth doing for IC10: that players, and
+My hope is that IC10 Bench makes testing cheap enough to be worth doing for IC10: that players, and
 the AI tools they use, write tests alongside their scripts, catch bugs before they cause a base to
 explode, and share scripts that come with proof they work.
+[More on why](https://github.com/tasermonkey/ic10-bench/blob/main/WHY.md).
 
 ## Getting started
 
@@ -91,6 +73,7 @@ explode, and share scripts that come with proof they work.
    Those files hold the game's text, so they stay out of git.
 5. Write a test, say `tests/airlock.test.ts` for `ic10/airlock.ic10`, and run `npm test`.
    `npx vitest run tests/airlock` runs just that one; `npm run test:watch` reruns as you edit.
+   New to this? [TUTORIAL.md](TUTORIAL.md) walks through a first script and test, line by line.
 
 Script paths are relative to `root`. `sim({ root: import.meta.dirname })` means "next to this test
 file"; leave it out and they're relative to the folder you run the tests from.
@@ -108,46 +91,11 @@ const world = await sim({ root: import.meta.dirname })
 	.build();
 ```
 
-- The **key** (`"vent"`) is how the test refers to a device. It isn't the in-game name; give
-  `{ name }` for that.
-- The **prefab** is the game's prefab name. A typo, or a property the prefab doesn't have, is a
-  compile error. Hovering a property shows what it is and whether
-  it's read-only. `npx ic10-bench props <prefab>` lists them (see [Looking things up](#looking-things-up)).
-- **Pins** map `d0`…`d5` to device keys. `db` is the housing itself; pass `props` to give it starting
-  values.
-- **Data networks.** If you don't declare any, every device shares one network, and batch
-  instructions (`lb`, `sbn`, …) see them all. To build a base with separate networks, declare each
-  one (`.network("base")`, `.network("outside")`) and put every device and housing on one of them
-  with `{ network: "base" }`. A chip's batch instructions then only see devices on its own network,
-  and, as in game, its pins can only be set to devices on its own network (anything else is a build
-  error). To reach a device on another network, use a Logic Mirror (below).
-- A housing's prefab defaults to the IC housing; pass `prefab` for another device that takes a chip
-  (an air conditioner, a hardsuit).
-- For a table of devices, `.devices([...])` takes a list of `device()`'s arguments:
-  `.devices(MACHINES.map(([key, prefab, id]) => [key, prefab, { On: 1 }, { id }]))`.
+The **key** (`"vent"`) is how the test refers to a device; the **prefab** is the game's name for
+it, checked as you type. Every builder method and option, including separate data networks,
+is in [REFERENCE.md](REFERENCE.md#building-a-world-sim).
 
-**Mods' devices.** The console mod's parts (`ModularDevice…`), `StationBatteryNuclear` and
-mirror-image layouts such as `StructureAirConditionerMirrored` work like any other prefab. For a
-device the harness has never heard of, add `{ custom: true }`: it gets every logic property,
-readable and writable, and its `PrefabHash` is `HASH(prefab)`.
-
-```ts
-.device("widget", "ModFutureWidget", { Setting: 1 }, { custom: true })
-```
-
-**Logic Mirrors** stand in for a device on another network:
-
-```ts
-sim()
-	.network("base")
-	.network("outside")
-	.device("sensor", "StructureGasSensor", { RatioNitrogen: 0.7 }, { network: "outside" })
-	.mirror("mirror", { target: "sensor", network: "base" })
-	.housing("ic", { file: "x.ic10", network: "base", pins: { d0: "mirror" } })
-```
-
-Reads and writes through it go to the target, as in game. `world.mirror("mirror").setPowered(false)`
-makes reads 0 and drops writes; `setTarget(key)` points it elsewhere.
+## Emulation env file
 
 **From an env file.** If you already have the emulator's env JSON, `World.fromEnv(env, options)`
 builds a world from it. Devices are keyed by their `name` when it's unique, otherwise by reference
@@ -156,20 +104,23 @@ from a file.
 
 ## Running it
 
-| Call | Does |
-|---|---|
-| `runTicks(n)` / `runSeconds(s)` | Advance game time. A tick is 0.5 s. |
-| `runUntil(pred, { maxTicks })` | Run whole ticks until `pred(world)` holds. |
-| `runUntilLine(labelOrIndex, { chip, maxTicks })` | Stop just before a chip runs that line. |
-| `runToHalt({ maxTicks })` | Run until every chip halts or ends. For one-shot scripts. |
-| `step(n, chip?)` | Run *n* lines of a chip, ignoring ticks. |
+Run actions on the `sim()` world. Advance game time by ticks or seconds, run until something holds or
+a chip reaches a line, or step a chip line by line:
+
+```ts
+await world.runTicks(30);                                          // a tick is 0.5 s
+await world.runUntil((w) => w.device("vent").get("On") === 1);
+await world.runUntilLine("wait", { chip: "ic" });
+```
+
+Every run call, and what it does, is in [REFERENCE.md](REFERENCE.md#running).
 
 A run that goes too long (10,000 ticks by default) fails with a message showing every chip's state
 and the last lines it ran, so a script stuck in a loop doesn't hang the test.
 
-## Changing things while it runs
+## Changing things as its running
 
-Between runs you can change anything directly:
+So between each of the 'Run actions' above, you can modify the world state as follows:
 
 ```ts
 world.device("sensor").set("Temperature", 280);       // read-only properties too
@@ -178,24 +129,24 @@ world.device("ic").set("On", 0);                      // switch a housing off; o
 world.chip("ic").setReg("Stage", 2);
 ```
 
-To press a button, `press(world, "button")` sets its `Activate` to 1 for one tick, as a press is
-in game (`press(world, "lever", "Open")` for another property). A script that doesn't read the
-button every tick can miss it, as in game.
-
-Or schedule it. Events run at the start of a tick, before any chip:
+### Schedule events
+Or schedule it. Events can modify state at the start of a tick, before any chip continues its execution:
 
 ```ts
 world.at({ tick: 20 }, (w) => w.device("sensor").set("Temperature", 450));
 world.at({ seconds: 60 }, ...);
-world.every({ ticks: 60 }, (w) => w.device("sensor").add("Temperature", -40), { label: "nightfall" });
+const stop = world.every({ ticks: 60 }, (w) => w.device("sensor").add("Temperature", -40), { label: "nightfall" });
 world.when((w) => w.device("vent").get("On") === 1, (w) => w.device("light").set("On", 1));
+// ...
+stop();
 ```
 
-Each returns a function that cancels it.
+Each returns a function that cancels it. See [REFERENCE.md](REFERENCE.md#scheduled-events) for
+the details.
 
 ## Checking results
 
-Read values directly:
+### Read values directly
 
 ```ts
 world.device("vent").get("Mode");
@@ -204,24 +155,19 @@ world.chip("ic").reg("Stage");      // a register or alias
 world.chip("ic").stackAt(4);
 world.chip("ic").halted;
 ```
+### Matchers
+Preferable, you would use vitest matchers, which explain what went wrong when they fail:
 
-Or use the matchers, which explain what went wrong when they fail:
+```ts
+expect(world.device("vent")).toHaveProps({ Mode: 0, On: 1 });
+expect(world.chip("ic")).toHaveRegister("Stage", 2);
+expect(world.chip("ic")).toHaveNoErrors();
+expect(world.chip("ic")).toBeAtLine("wait");
+```
 
-| Matcher | On | Passes when |
-|---|---|---|
-| `toHaveProps({ Mode: 1 })` | device, or chip (its housing) | Those properties have those values; others aren't checked. `expect.closeTo` works. |
-| `toHaveRegister(name, v)` | chip | `r15`, `sp`, `ra` or an alias has the value. |
-| `toHaveRegisterCloseTo(name, v, digits = 2)` | chip | Within `10^-digits / 2`. |
-| `toHaveStack([...])` / `toHaveStackAt(i, v)` | chip | The stack below `sp` / one entry. |
-| `toBeAtLine(index \| label)` | chip | It runs that line next, or halted on it. |
-| `toHaveNoErrors()` | chip | Not halted, and no warnings (such as an alias that hides a built-in constant). |
-| `toHaveHalted({ line, error })` | chip | Halted, optionally on that line with a matching message. |
-| `toOnlyChange(paths, { since })` | world | Nothing else changed since a `world.snapshot()`. Paths can use aliases (`ic.Stage`) and `*`. |
-| `toToggleAtMost(n)` | `world.record("vent.On")` | The value changed at most `n` times. Good for catching flapping. |
-| `toBlink({ times = 2 })` | a recording | It changed at least twice: on, off and on again. For a warning light. |
-| `toStayAt(v)` | a recording | It was `v` at every sample. `expect.closeTo` works. |
-| `toNeverAutoYield()` | chip | Never ran out of its 128 lines in a tick. |
-| `toAutoYieldAtMost(n, { perTicks })` | chip | At most `n` automatic yields, in total or in any window. |
+They cover device properties, registers and the stack, where a chip is and whether it halted,
+what changed since a snapshot, how a recorded value moved, and automatic yields. See
+[REFERENCE.md](REFERENCE.md#matchers) for the full list.
 
 A failure shows the chip's current line, its registers with their aliases, the stack, the devices on
 its pins, and the last lines it ran.
@@ -234,22 +180,24 @@ script uses: `expect(world.device("light")).toHaveProps({ Color: Color.Green })`
 
 - **Line numbers are 0-based** and count every line, comments and blanks included, like the game's
   `LineNumber`.
-- **Comment, blank and label lines count toward the 128 lines a tick**, as in game.
 - **A halt isn't a test failure.** The chip stops and the housing's `Error` goes to 1, as in game;
   check for it with `toHaveNoErrors()`. Build with `sim({ failOnHalt: true })` to fail at once instead.
-- **Writing a property a device doesn't have, or a read-only one, halts the chip**, as in game. The
+- **Writing to a property a device doesn't have, or a read-only one, halts the chip**, as in game. The
   message names the device and lists what it does have.
 - **Switching a housing off and on restarts its chip** from line 0. Off and on again within one tick
   goes unnoticed, so a script restarting another chip has to `yield` in between.
 - **Chips take turns in the order you declared them**, and each sees the others' writes at once.
-- **`sleep` doesn't wait in real time**; it skips game ticks. A test of a script that sleeps for a
-  minute still runs in milliseconds.
+- **`sleep` doesn't wait in real time**; it yields, then does not continue executing for a specified
+  amount of time.  Other chips, events, etc will continue to run.
 
-## Pipes, rooms and device behaviour
+## Experimental
+### Pipes, rooms and device behaviour
 
 By default devices are just bags of values: a vent you switch on doesn't move any gas, and a sensor
 reads whatever the test sets. When your script's logic depends on the physical result (it waits
 for a pipe to empty, a room to warm up), give it gas to work on and models to move it.
+
+So I setup the emulator to be able to do some simulation of gases.
 
 ```ts
 const world = await sim({ root: import.meta.dirname })
@@ -263,36 +211,13 @@ const world = await sim({ root: import.meta.dirname })
 world.model("vent", activeVent());
 ```
 
-- `.pipe(key, …)` needs a `volume` (`PIPE_VOLUME` is one 10 L segment) and either `gases` in moles or
-  `pressure` and `ratios`. `.room(key, …)` with a `volume` is a sealed room; without one it's outside
-  air: too big for anything to change, so it only changes when the test sets new weather.
-- Attach a device with `{ pipe }`, `{ room }` or `{ ports: { input, input2, output, output2 } }`.
-  Its `Pressure`, `Temperature`, `TotalMoles` and `Ratio<Gas>` readings then come from the gas
-  (with the port's suffix: `PressureOutput`, `RatioNitrogenInput`), and can't be `set` directly.
-- `world.pipe(key)` and `world.room(key)` give the gas, and paths such as `coolant.Temperature` work
-  in `record` and snapshots.
+A device attached to a pipe or room reads its `Pressure`, `Temperature` and gas ratios from it.
+**Models** make devices act on the world each tick: vents, pumps, regulators, filtration, air
+conditioners, batteries, heat exchange, day and night, and more, or one you write. The gas is
+simpler than the game's (ideal gas, perfectly mixed, no condensing or boiling).
 
-The gas is plausible, not exact: ideal gas, perfectly mixed, no condensing or boiling.
-
-**Models** make devices act on the world each tick. A setting a script writes in one tick acts in
-the next. Each only works while the device is `On`; power isn't modelled. Rates the game keeps in
-asset files are guesses you can pass in.
-
-| Model | For |
-|---|---|
-| `activeVent({ pressurePerTick })`, `poweredVent(…)` | Vents moving gas between a pipe (`output`) and a room, honouring `Mode` and the pressure limits. |
-| `volumePump()` | `Setting` litres a tick from `input` to `output`. |
-| `pressureRegulator()`, `backPressureRegulator()` | Gas from `input` to `output` until the output rises to / input falls to `Setting`. |
-| `filtration({ gases })` | Filtered gases to `output`, the rest to `output2`. Reads the filters in slots 0 and 1 unless `gases` names them. |
-| `airConditioner()` | Heats or cools gas from `input` to `output` toward `Setting` K, using `output2` as the waste pipe. |
-| `heatExchange(a, b, { fraction })` | Two pipes, or a pipe and a room, moving toward a shared temperature. A world model: `world.model(heatExchange(...))`. |
-| `battery({ generation, usage })` | Charge, `Ratio` and `Mode` from watts in and out (numbers, device keys or functions). |
-| `dayNight({ dayTicks, room, temperature, sensors })` | A world model: day/night temperature on a room, and the sun on daylight sensors. |
-| `occupancySchedule(windows)` | An occupancy sensor's `Quantity` and `Activate` over time. |
-| `larreDock({ stations, planters, dropOff })` | A hydroponics Larre arm moving along its rail, planting and harvesting. |
-
-Or write your own: `world.model("lamp", (lamp, dt, w) => { … })` runs every tick with the device,
-the tick's length in seconds and the world.
+Pipe and room fields, attaching devices, every model and its options are in
+[REFERENCE.md](REFERENCE.md#gas-and-models-experimental).
 
 ## The device catalogue
 
@@ -300,20 +225,18 @@ The harness knows every device the emulator has: its logic types, whether each i
 writable, its slots and modes. `sim().device()` is type-checked against it, so a misspelt prefab or
 property is an error in your editor, before the test even runs.
 
-`npx ic10-bench catalog` (your `pretest` script) adds two things for your project:
+`npx ic10-bench catalog` (npm `pretest` script) adds two things for the project:
 
-- **Descriptions** of every logic type, from your Stationeers install: it finds the game through
-  Steam, or set `STATIONEERS_DIR` to its folder. They show when you hover a property, and in
-  `ic10-bench props`. Without the game everything still works, just without descriptions.
+- **Descriptions** of every logic type, from your Stationeers install.
 - **Your mods' devices**, if you've added any (next section).
 
 It writes `.ic10-bench/catalog.json` and `ic10-bench-env.d.ts`. TypeScript picks up the
-`.d.ts` as long as your `tsconfig.json` includes the project folder (the default does). Run it
+`.d.ts` as long as your `tsconfig.json` includes the project folder. Run it
 again after a game update.
 
 ## Using modded devices
 
-Devices from workshop mods aren't in the emulator, but you can add them, so a test can use them like
+Devices from workshop mods aren't in the emulator library, but you can add them, so a test can use them like
 any other device:
 
 1. Export the game's device list. Install the
@@ -362,7 +285,7 @@ npx ic10-bench props 489382030              # by hash
 npx ic10-bench logic PressureInternal       # what it is, and every prefab that has it
 ```
 
-## Checking every script
+## Linting Scripts
 
 Some mistakes need no test written for them: a script too long for the chip, a line the game will
 cut, a misspelt alias, an `sb` of a logic type the device doesn't have, a loop with no `yield`. One
@@ -375,36 +298,13 @@ import { describeScriptChecks } from "@tasermonkey/ic10-bench/checks";
 describeScriptChecks();
 ```
 
-For each `.ic10` file under `ic10/`, that makes these tests:
-
-| Test | Checks |
-|---|---|
-| `limits` | 128 lines, 90 characters a line and 4096 characters, counted as the game counts them |
-| `loads` | The script loads: syntax, argument counts, aliases, defines and labels |
-| `devices` | Batch instructions (`lb`, `sbn`, …) use logic types their devices have, mods' devices included; `HASH()` of a number or of a prefab that doesn't exist |
-| `style` | Relative branches given a label, jumps to line numbers, unused aliases, defines and labels |
-| `idle` | Run for 50 ticks against stand-in devices, it doesn't halt or run out of lines (a loop with no `yield`). See below. |
-
-The checks are [@tasermonkey/ic10-lint](https://github.com/tasermonkey/ic10-bench/tree/main/packages/ic10-lint#readme)'s
-rules, and they read its config, `ic10-lint.json` in your project's folder: which folder the scripts
-are in, rules turned off or down to warnings (a test then passes and shows the finding as a
-warning), and overrides for a script that's already over a limit. `"idle": "warn"` or `"off"` in
-its `rules` sets the idle test's severity, for every script or, in an override's `rules`, for one.
-
-The `idle` test builds no world of its own, so it stands in for every device the script could
-reach: one on each pin `d0`–`d5`, and one at each reference ID the script writes as a whole number
-(`$1488`, `797452`). A stand-in has every logic type and every slot, and they all read 0. The
-housing answers any logic type too, for a chip meant to sit in another device (an air conditioner,
-a suit) and read it through `db`; its own logic types keep their rules. So the test runs the paths
-a script takes with its devices empty, off or at rest, and a loop that waits on one of them without
-a `yield` fails it. A script that finds a device by an ID it works out (`ld r0 r1 On` with `r1`
-computed) can still miss one, and that skips the test ("needs devices").
+For each `.ic10` file under `ic10/`, that makes a test for each group of checks: limits, loading,
+devices, style, and a short idle run that catches a loop with no `yield`. Turn rules off or down to
+warnings in `ic10-lint.json`; `npx ic10-bench lint init` writes a starting one. The checks, the
+config and how the idle run works are in [REFERENCE.md](REFERENCE.md#script-checks).
 
 `npx ic10-bench lint` runs the same checks (all but `idle`) from the command line, without Vitest:
-for CI or a pre-commit hook. It exits with 1 when there's an error. `npx ic10-bench lint init`
-writes a starting `ic10-lint.json`.
-
-`checkBatchOps(source, loadCatalog())` is the `devices` check on its own, for one script.
+for CI or a pre-commit hook. It exits with 1 when there's an error.
 
 ## Debugging
 
@@ -414,25 +314,8 @@ step a tick at a time. Tests need no changes.
 
 ## Reference
 
-**Device handle** (`world.device(key)`): `get`, `set`, `add`, `props(...)`, `id`, `idHex`, `name`,
-`stackAt(i)` (the device's own memory, which `put` writes), `slot(i)` (`put`, `get`, `set`, `clear`,
-`occupied`), and with gas attached `pipe`, `room`, `port(name)`, `readings`.
-
-**Chip handle** (`world.chip(key)`): `reg`, `setReg`, `registers()`, `aliases()`, `defines()`,
-`stack()`, `stackAt(i)`, `setStackAt(i, v)`, `sp`, `ra`, `line`, `findLabel`, `halted`, `halt`,
-`errors`, `ended`, `sleeping`, `restarts`, `autoYields`, `recentLines(n)`, `status`, `db`, `pins`.
-
-**World**: `tick`, `listDevices()`, `listChips()`, `deviceById(id)`, `network(id).byName(...)` /
-`.byType(...)`, `snapshot()` / `diff(before)`, `record(path)`, `listEvents()`, `listModels()`,
-`refreshReadings()` (show a gas change on devices before the next tick).
-
-**`sim()` options**: `root`, `failOnHalt`, `maxTicks` (default 10,000), `maxLinesPerRun` (default
-1,000,000), `tickSeconds` (default 0.5), `countNonInstructionLines` (default true),
-`restartClearsState` (default false).
-
-**Also exported**: `hash(name)` (the game's `HASH()`), `press(world, key, prop?)`, `Color`,
-`VentMode`, `LedMode`, `readScript`, `findScripts`, and the gas classes `Mixture` and `Reservoir`
-for working with gas outside a world. `@tasermonkey/ic10-bench/checks` has `describeScriptChecks`.
+[REFERENCE.md](REFERENCE.md) lists every `sim()` builder method and option, the script checks, the gas and its models, what each member of the world, device
+and chip handles does, every matcher, and the other exports.
 
 ## Made with AI
 

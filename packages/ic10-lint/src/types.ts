@@ -51,7 +51,7 @@ export interface Rule {
 	defaultOff?: boolean;
 	/** Rules that check against the device catalogue; without one, they report that they were skipped. */
 	needsCatalog?: boolean;
-	/** One line on what it checks, for the README and `--help`. */
+	/** One line on what it checks, for REFERENCE.md and `--help`. */
 	description: string;
 	check(context: RuleContext): void | Promise<void>;
 }

@@ -2,7 +2,7 @@
 	"$schema": "http://json-schema.org/draft-07/schema#",
 	"$id": "https://unpkg.com/@tasermonkey/ic10-lint/schema.json",
 	"title": "ic10-lint.json",
-	"description": "The config for ic10-lint and IC10 Bench's script checks: https://github.com/tasermonkey/ic10-bench/tree/main/packages/ic10-lint#the-config-ic10-lintjson",
+	"description": "The config for ic10-lint and IC10 Bench's script checks: https://github.com/tasermonkey/ic10-bench/blob/main/packages/ic10-lint/REFERENCE.md#config",
 	"type": "object",
 	"properties": {
 		"$schema": { "type": "string" },
