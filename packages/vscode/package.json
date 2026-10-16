@@ -2,7 +2,7 @@
 	"name": "ic10-bench",
 	"displayName": "IC10 Bench",
 	"description": "Test your Stationeers IC10 scripts with Vitest, and step through them in the VS Code debugger",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"private": true,
 	"type": "module",
 	"publisher": "tasermonkey",
