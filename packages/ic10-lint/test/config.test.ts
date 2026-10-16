@@ -71,6 +71,21 @@ describe("lintProject", () => {
 		});
 	});
 
+	it('skips node_modules and dot-folders, so "dir": "." doesn\'t search installed packages', async () => {
+		const flat = makeProject({
+			"top.ic10": "yield",
+			"archive/old.ic10": "yield",
+			"node_modules/pkg/fixture.ic10": "yield",
+			".git/stray.ic10": "yield",
+			"ic10-lint.json": { dir: "." },
+		});
+		try {
+			expect((await lintProject(loadConfig(flat.root))).map((r) => r.path)).toEqual(["archive/old.ic10", "top.ic10"]);
+		} finally {
+			flat.remove();
+		}
+	});
+
 	it("lints just the files asked for with lintFiles", async () => {
 		const reports = await lintFiles(["ic10/rooms"], loadConfig(project.root));
 		expect(reports.map((r) => r.path)).toEqual(["ic10/rooms/warns.ic10"]);

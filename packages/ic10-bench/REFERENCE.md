@@ -2,6 +2,43 @@
 
 What each builder method, option, handle, matcher and export does. For how to put them together, see the [README](README.md).
 
+## Setting up a project
+
+`npx @tasermonkey/ic10-bench init [<file.ic10> ...]` sets a folder of scripts up for testing. Each
+step leaves alone anything already there, so running it again changes nothing.
+
+### `init` options
+
+| Option | Default | What it does |
+|---|---|---|
+| `<file.ic10> ...` | every script in the scripts folder | Write skeleton tests for just these scripts. |
+| `--dir <folder>` | `ic10/` and its subfolders if there is one, else the `.ic10` files directly in the project folder | Where the scripts are. |
+| `--no-install` | | Don't run `npm install`. |
+| `--no-tests` | | Don't write skeleton tests. |
+| `--yes` | | Don't ask before setting up in what looks like the game's own folder (a folder named `Stationeers` on the path). With no terminal to ask in, `init` stops there unless given this. |
+
+### What `init` writes
+
+| File | What `init` does |
+|---|---|
+| `package.json` | Writes one, or adds to yours: `"type": "module"` and the scripts `pretest` (`ic10-bench catalog`), `test` (`vitest run`), `test:watch` and `lint`. A script you already have is kept, except `npm init -y`'s failing `test`. `"type": "commonjs"` is kept if there are `.js` files it could matter to. |
+| `vitest.config.ts` | `defineIc10Config({ test: { include: ["tests/**/*.test.ts"] } })`, unless there's a Vite or Vitest config already. |
+| `tsconfig.json` | One that includes `tests/` and `ic10-bench-env.d.ts`, so your editor knows the prefabs. |
+| `.gitignore` | Adds `node_modules/`, `.ic10-bench/` and `ic10-bench-env.d.ts`. |
+| `node_modules/` | `npm install --save-dev` of ic10-bench, `vitest`, `@types/node` and `typescript`, if they aren't dependencies yet. |
+| `.ic10-bench/`, `ic10-bench-env.d.ts` | The device catalogue, as `ic10-bench catalog` builds it. |
+| `ic10-lint.json` | As `ic10-bench lint init` writes it, with `dir` set to the scripts folder. |
+| `tests/<script>.test.ts` | A skeleton test per script, named after it (`Script1 [450].ic10` → `script1-450.test.ts`), in the same subfolder as the script has in the scripts folder (`ic10/rooms/lights.ic10` → `tests/rooms/lights.test.ts`). It's `it.skip`: add the devices on the script's pins, add checks, and remove `.skip`. |
+
+### Setting up by hand
+
+| Step | What to do |
+|---|---|
+| 1 | `npm init -y` if there's no `package.json`, then `npm pkg set type=module` and `npm install --save-dev @tasermonkey/ic10-bench vitest`. |
+| 2 | A `vitest.config.ts` with `export default defineIc10Config();` (from `@tasermonkey/ic10-bench/config`): Vitest's own config with the IC10 matchers added. Pass your usual Vitest options in it. |
+| 3 | The scripts `"pretest": "ic10-bench catalog"`, `"test": "vitest run"` and `"test:watch": "vitest"`, and `.ic10-bench/` and `ic10-bench-env.d.ts` in `.gitignore`: they hold the game's text. |
+| 4 | A test, say `tests/airlock.test.ts`, then `npm test`. |
+
 ## Building a world (`sim()`)
 
 `sim(options)` returns a builder. Each call adds to the world and returns the builder, and

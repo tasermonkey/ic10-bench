@@ -1,7 +1,7 @@
 # Your first test
 
 A walk through one script and its test, with every line of the test explained. Set up the project
-first, as in the README's [Getting started](README.md#getting-started).
+first with `npx @tasermonkey/ic10-bench init`, as in the README's [Getting started](README.md#getting-started).
 
 ## The script
 

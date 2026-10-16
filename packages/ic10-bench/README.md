@@ -41,39 +41,18 @@ explode, and share scripts that come with proof they work.
 
 ## Getting started
 
-1. Install [Node.js](https://nodejs.org/) 24 or later.
-2. In the folder with your scripts (run `npm init -y` first if it has no `package.json`):
-   ```
-   npm pkg set type=module
-   npm install --save-dev @tasermonkey/ic10-bench vitest
-   ```
-   The tests and `vitest.config.ts` are ES modules, and the tests use `import.meta.dirname`.
-3. Add a `vitest.config.ts`:
-   ```ts
-   import { defineIc10Config } from "@tasermonkey/ic10-bench/config";
+With [Node.js](https://nodejs.org/) 24 or later, in the folder with your scripts:
 
-   export default defineIc10Config();
-   ```
-   That's Vitest's own config with the IC10 matchers added. Pass your usual Vitest options in it,
-   e.g. `defineIc10Config({ test: { include: ["tests/**/*.test.ts"] } })`.
-4. Add the scripts to your `package.json`, and two lines to your `.gitignore`:
-   ```json
-   "scripts": {
-     "pretest": "ic10-bench catalog",
-     "test": "vitest run",
-     "test:watch": "vitest"
-   }
-   ```
-   ```
-   .ic10-bench/
-   ic10-bench-env.d.ts
-   ```
-   `ic10-bench catalog` reads your Stationeers install for the descriptions of each device and
-   property, and writes the types your editor uses (see [The device catalogue](#the-device-catalogue)).
-   Those files hold the game's text, so they stay out of git.
-5. Write a test, say `tests/airlock.test.ts` for `ic10/airlock.ic10`, and run `npm test`.
-   `npx vitest run tests/airlock` runs just that one; `npm run test:watch` reruns as you edit.
-   New to this? [TUTORIAL.md](TUTORIAL.md) walks through a first script and test, line by line.
+```
+npx @tasermonkey/ic10-bench init
+```
+
+That sets the folder up for testing (package.json, Vitest, the packages, the device catalogue) and
+writes a skipped skeleton test for each script in `tests/`. Fill one in, remove its `.skip`, and
+run `npm test`. Running `init` again changes nothing it already did; `init <file.ic10>` adds a
+skeleton for a new script. Its options, what it writes, and how to set up by hand are in
+[REFERENCE.md](REFERENCE.md#setting-up-a-project). New to this? [TUTORIAL.md](TUTORIAL.md) walks
+through a first script and test, line by line.
 
 Script paths are relative to `root`. `sim({ root: import.meta.dirname })` means "next to this test
 file"; leave it out and they're relative to the folder you run the tests from.

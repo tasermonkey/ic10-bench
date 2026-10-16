@@ -52,6 +52,12 @@ Everything the harness reads or writes for a user's project is under the project
 This package's own tests use the fixture project in `test/fixtures/project/`, with a few mods'
 devices; `npm test` builds its catalogue first (`catalog:fixture`).
 
+`ic10-bench init` (`src/cli/init.ts`) sets a project up, one step at a time, each skipped when its
+work is already there; npm is passed in, so `test/cli-init.test.ts` runs it in temp folders without
+installing. The skeleton tests come from `src/cli/starter-test.ts` and don't read the scripts.
+`test/fixtures/init/tests/` holds one as `init` writes it, so typecheck checks the generated code;
+change both together.
+
 ## Device catalogue
 
 There are two:

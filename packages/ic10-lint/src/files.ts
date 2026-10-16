@@ -11,12 +11,17 @@ export interface FileReport {
 	findings: Finding[];
 }
 
-/** Every `.ic10` file under `dir`, recursively, as sorted absolute paths. */
+/**
+ * Every `.ic10` file under `dir`, recursively, as sorted absolute paths. Skips `node_modules` and
+ * folders whose name starts with `.`, so `"dir": "."` doesn't search installed packages or `.git`.
+ */
 export function findScripts(dir: string): string[] {
 	const out: string[] = [];
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
 		const full = join(resolve(dir), entry.name);
-		if (entry.isDirectory()) out.push(...findScripts(full));
+		if (entry.isDirectory()) {
+			if (entry.name !== "node_modules" && !entry.name.startsWith(".")) out.push(...findScripts(full));
+		}
 		else if (entry.name.endsWith(".ic10")) out.push(full);
 	}
 	return out.sort();

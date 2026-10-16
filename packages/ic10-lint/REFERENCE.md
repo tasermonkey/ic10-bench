@@ -43,7 +43,7 @@ with every rule at its default severity.
 
 | Field | Default | What it does |
 |---|---|---|
-| `dir` | `ic10` | The folder of scripts to check when you don't name any. |
+| `dir` | `ic10` | The folder of scripts to check when you don't name any, subfolders included (but not `node_modules` or folders starting with `.`). |
 | `rules` | each rule's default | A severity for any rule: `"error"`, `"warn"`, `"info"` or `"off"`. |
 | `overrides` | none | Settings for one script, by its path from the project's folder, with `/`. See below. |
 
