@@ -35,7 +35,7 @@ step leaves alone anything already there, so running it again changes nothing.
 | Step | What to do |
 |---|---|
 | 1 | `npm init -y` if there's no `package.json`, then `npm pkg set type=module` and `npm install --save-dev @tasermonkey/ic10-bench vitest`. |
-| 2 | A `vitest.config.ts` with `export default defineIc10Config();` (from `@tasermonkey/ic10-bench/config`): Vitest's own config with the IC10 matchers added. Pass your usual Vitest options in it. |
+| 2 | A `vitest.config.ts` with `export default defineIc10Config();` (from `@tasermonkey/ic10-bench/config`): Vitest's own config with the IC10 matchers added. Pass your usual Vitest options in it. In watch mode (`npm run test:watch`), saving a `.ic10` file reruns the tests whose text has its file name; `defineIc10Config({ … }, { watchScripts: false })` turns that off. |
 | 3 | The scripts `"pretest": "ic10-bench catalog"`, `"test": "vitest run"` and `"test:watch": "vitest"`, and `.ic10-bench/` and `ic10-bench-env.d.ts` in `.gitignore`: they hold the game's text. |
 | 4 | A test, say `tests/airlock.test.ts`, then `npm test`. |
 

@@ -181,6 +181,28 @@ describe("defineIc10Config", () => {
 		expect(config.test?.setupFiles).toEqual([expect.stringMatching(/vitest-setup\.(ts|js)$/), "mine.ts"]);
 		expect(config.test?.env?.[ROOT_ENV]).toMatch(/[\\/]projects[\\/]station$/);
 	});
+
+	it("reruns the tests that name a changed .ic10 file", () => {
+		const root = mkdtempSync(join(tmpdir(), "ic10-bench-watch-"));
+		const files = {
+			"tests/rooms/lights.test.ts": 'sim().chip("c", { file: "ic10/rooms/lights [12].ic10" })',
+			"tests/airlock.test.ts": 'const SCRIPT = join("ic10", "airlock.ic10");',
+			"tests/notes.md": "lights [12].ic10",
+		};
+		for (const [path, text] of Object.entries(files)) {
+			mkdirSync(join(root, path, ".."), { recursive: true });
+			writeFileSync(join(root, path), text);
+		}
+		const [trigger] = defineIc10Config({ root, test: { include: ["tests/**/*.test.ts"] } }).test!.watchTriggerPatterns!;
+		const changed = join(root, "ic10/rooms/lights [12].ic10");
+		expect(trigger!.pattern.test(changed)).toBe(true);
+		expect(trigger!.testsToRun(changed, changed.match(trigger!.pattern)!)).toEqual([join(root, "tests/rooms/lights.test.ts")]);
+		expect(trigger!.testsToRun(join(root, "ic10/airlock.ic10"), [] as unknown as RegExpMatchArray)).toEqual([join(root, "tests/airlock.test.ts")]);
+	});
+
+	it("leaves .ic10 files unwatched with watchScripts: false", () => {
+		expect(defineIc10Config({}, { watchScripts: false }).test?.watchTriggerPatterns).toBeUndefined();
+	});
 });
 
 describe("prefab-props.ts", () => {
