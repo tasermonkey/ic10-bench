@@ -6,7 +6,8 @@ with the IC10Sync mod (C#, in the game), which this works with.
 ## Layout rules
 
 The package depends on `@tasermonkey/ic10-lint` (to read a script as the game does, and to lint
-before sending it), `commander` (the command line) and Node built-ins only. IC10 Bench and Vitest are optional peers, and never
+before sending it), `commander` (the command line), `@inquirer/prompts` (questions in a terminal)
+and Node built-ins only. IC10 Bench and Vitest are optional peers, and never
 imported from here: `src/sync/gate.ts` loads the *project's* copies (`createRequire` from the project's
 `package.json`), so the tests run with the project's versions and config.
 
@@ -50,5 +51,6 @@ each chip between passes, so `watch` doesn't check or print the same thing twice
 `test/` has the same folders as `src/` (`test/sync/sync.test.ts` tests `src/sync/sync.ts`);
 the command line's tests, `map`/`adopt`/`unmap`'s among them, are in `test/cli.test.ts`. Tests
 build a project and a chipdata folder in temp folders (`test/project.ts`). Nothing reads the
-real registry, game folder or terminal: `CliIo.documents`, `env` and `ask` stand in for them.
+real registry, game folder or terminal: `CliIo.documents`, `env` and `choose` stand in for them
+(`choose` is @inquirer/prompts' `select` in `bin/ic10-link.ts`, the only place that imports it).
 `findTests` and `runTests` stand in for the project's IC10 Bench and Vitest; lint runs for real.

@@ -80,7 +80,7 @@ know which that is.
 
 | Where `status` runs | What happens |
 | --- | --- |
-| A terminal | For each chip with several files, it lists them (when each changed, how many lines) and asks which is current. The others are deleted. Enter skips the chip. |
+| A terminal | For each chip with several files, it asks which is current, from a list of them (when each changed, how many lines); pick one with the arrow keys and Enter. The others are deleted. "Skip" keeps them all; Ctrl+C stops, deleting nothing more. |
 | A pipe, CI, a script | It lists them and exits 1. |
 
 ## `stations/<station>.json`

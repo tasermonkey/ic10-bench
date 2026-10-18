@@ -19,10 +19,10 @@ async function runWith(project: Folder, io: Partial<CliIo>, ...argv: string[]) {
 	return { code, output };
 }
 
-/** Answers each question in turn, and keeps the questions. */
-function answers(...replies: string[]) {
-	const questions: string[] = [];
-	return { questions, ask: async (question: string) => (questions.push(question), replies.shift() ?? "") };
+/** Picks each choice in turn, by its index, and keeps the questions with their choices. */
+function picks(...indexes: number[]) {
+	const questions: { question: string; choices: string[] }[] = [];
+	return { questions, choose: async (question: string, choices: string[]) => (questions.push({ question, choices }), indexes.shift()!) };
 }
 
 function setup(chips: Record<string, string> = {}) {
@@ -231,34 +231,45 @@ describe("ic10-link status, for a relabelled chip", () => {
 		expect(existsSync(join(chipdata.root, "Base", "Lights [451].ic10"))).toBe(true);
 	});
 
-	it("asks which file is current, oldest first, and deletes the others", async () => {
+	it("asks which file is current, from a list, oldest first, and deletes the others", async () => {
 		const { chipdata, project } = relabelled();
-		const { questions, ask } = answers("2");
-		const { code, output } = await runWith(project, { ask }, "status", "--chipdata", chipdata.root);
+		const { questions, choose } = picks(1);
+		const { code, output } = await runWith(project, { choose }, "status", "--chipdata", chipdata.root);
 		expect(code).toBe(0);
-		expect(questions).toEqual(["Which one is current? The others are deleted. [1-2, Enter to skip]: "]);
+		expect(questions).toEqual([
+			{
+				question: "Which one is current? The others are deleted.",
+				choices: [
+					expect.stringMatching(/^Lights \[451\]\.ic10 {7}modified \S+ \S+, 1 line$/),
+					expect.stringMatching(/^Room Lights \[451\]\.ic10 {2}modified \S+ \S+, 2 lines$/),
+					"Skip: keep them all",
+				],
+			},
+		]);
 		expect(output).toContain("Chip 451 has 2 files.");
-		expect(output).toMatch(/1\) Lights \[451\]\.ic10 .*\n.*2\) Room Lights \[451\]\.ic10/);
 		expect(output).toContain("  deleted Lights [451].ic10\n");
 		expect(output).toContain("[451] Room Lights -> ic10/lights.ic10: differs\n");
 		expect(existsSync(join(chipdata.root, "Base", "Lights [451].ic10"))).toBe(false);
 		expect(existsSync(join(chipdata.root, "Base", "Room Lights [451].ic10"))).toBe(true);
 	});
 
-	it("asks again after an answer that isn't one of the files", async () => {
-		const { chipdata, project } = relabelled();
-		const { questions, ask } = answers("3", "x", "1");
-		const { code } = await runWith(project, { ask }, "status", "--chipdata", chipdata.root);
-		expect(code).toBe(0);
-		expect(questions).toHaveLength(3);
-		expect(existsSync(join(chipdata.root, "Base", "Room Lights [451].ic10"))).toBe(false);
-	});
-
 	it("keeps every file when the player skips the chip", async () => {
 		const { chipdata, project } = relabelled();
-		const { code, output } = await runWith(project, answers(""), "status", "--chipdata", chipdata.root);
+		const { code, output } = await runWith(project, picks(2), "status", "--chipdata", chipdata.root);
 		expect(code).toBe(1);
 		expect(output).toContain("Several files for one chip.");
+		expect(existsSync(join(chipdata.root, "Base", "Lights [451].ic10"))).toBe(true);
+		expect(existsSync(join(chipdata.root, "Base", "Room Lights [451].ic10"))).toBe(true);
+	});
+
+	it("stops, deleting nothing, when the player cancels the question", async () => {
+		const { chipdata, project } = relabelled();
+		const choose = async () => {
+			throw new Error("Stopped.");
+		};
+		const { code, output } = await runWith(project, { choose }, "status", "--chipdata", chipdata.root);
+		expect(code).toBe(2);
+		expect(output).toMatch(/Stopped\.\n$/);
 		expect(existsSync(join(chipdata.root, "Base", "Lights [451].ic10"))).toBe(true);
 	});
 });

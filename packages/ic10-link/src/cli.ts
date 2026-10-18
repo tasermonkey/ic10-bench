@@ -26,8 +26,8 @@ export interface CliIo extends Pick<GateOptions, "findTests" | "runTests"> {
 	/** The project: where stations/ is. */
 	cwd: string;
 	out: (text: string) => void;
-	/** Asks the player a question and returns their answer. Only in an interactive terminal. */
-	ask?: (question: string) => Promise<string>;
+	/** Asks the player to pick one of `choices`, and returns its index. Only in an interactive terminal; throws if they cancel. */
+	choose?: (question: string, choices: string[]) => Promise<number>;
 	env?: NodeJS.ProcessEnv;
 	/** The Documents folder; for tests. Default reads Windows' registry. */
 	documents?: FindOptions["documents"];
@@ -49,32 +49,27 @@ function lines(count: number): string {
 	return `${count} line${count === 1 ? "" : "s"}`;
 }
 
-function describeFiles(duplicate: Duplicate, numbered: boolean): string[] {
+/** A line per file: its name, when it changed, and how many lines it has. */
+function describeFiles(duplicate: Duplicate): string[] {
 	const width = Math.max(...duplicate.files.map((file) => basename(file.path).length));
-	return duplicate.files.map((file, i) => {
+	return duplicate.files.map((file) => {
 		const size = file.lines === 0 ? "empty" : lines(file.lines);
-		return `  ${numbered ? `${i + 1}) ` : "  "}${basename(file.path).padEnd(width)}  modified ${formatTime(file.modified)}, ${size}`;
+		return `${basename(file.path).padEnd(width)}  modified ${formatTime(file.modified)}, ${size}`;
 	});
 }
 
 /** Asks which of a chip's files is current, and deletes the others. False if the player skips it. */
-async function resolveDuplicate(duplicate: Duplicate, ask: NonNullable<CliIo["ask"]>, io: CliIo): Promise<boolean> {
-	const count = duplicate.files.length;
-	io.out(`\nChip ${duplicate.id} has ${count} files. The IC10Sync mod only uses the one with the chip's label now:`);
-	for (const line of describeFiles(duplicate, true)) io.out(line);
-	for (;;) {
-		const answer = (await ask(`Which one is current? The others are deleted. [1-${count}, Enter to skip]: `)).trim();
-		if (answer === "") return false;
-		const choice = Number(answer);
-		if (Number.isInteger(choice) && choice >= 1 && choice <= count) {
-			for (const [i, file] of duplicate.files.entries()) {
-				if (i === choice - 1) continue;
-				rmSync(file.path);
-				io.out(`  deleted ${basename(file.path)}`);
-			}
-			return true;
-		}
+async function resolveDuplicate(duplicate: Duplicate, choose: NonNullable<CliIo["choose"]>, io: CliIo): Promise<boolean> {
+	const files = describeFiles(duplicate);
+	io.out(`\nChip ${duplicate.id} has ${files.length} files. The IC10Sync mod only uses the one with the chip's label now.`);
+	const choice = await choose("Which one is current? The others are deleted.", [...files, "Skip: keep them all"]);
+	if (choice >= duplicate.files.length) return false;
+	for (const [i, file] of duplicate.files.entries()) {
+		if (i === choice) continue;
+		rmSync(file.path);
+		io.out(`  deleted ${basename(file.path)}`);
 	}
+	return true;
 }
 
 /** What `map` and `adopt` say about the chip once it's mapped. */
@@ -86,8 +81,8 @@ function reportMapped(id: string, script: string, result: MapResult, io: CliIo):
 
 async function status(station: Station, io: CliIo): Promise<number> {
 	let result = stationStatus(io.cwd, station);
-	if (io.ask && result.duplicates.length > 0) {
-		for (const duplicate of result.duplicates) await resolveDuplicate(duplicate, io.ask, io);
+	if (io.choose && result.duplicates.length > 0) {
+		for (const duplicate of result.duplicates) await resolveDuplicate(duplicate, io.choose, io);
 		io.out("");
 		result = stationStatus(io.cwd, station);
 	}
@@ -115,7 +110,7 @@ async function status(station: Station, io: CliIo): Promise<number> {
 		io.out("delete the others, or run this in a terminal to choose:");
 		for (const duplicate of duplicates) {
 			io.out(`  [${duplicate.id}]`);
-			for (const line of describeFiles(duplicate, false)) io.out(`  ${line}`);
+			for (const line of describeFiles(duplicate)) io.out(`    ${line}`);
 		}
 		return 1;
 	}
