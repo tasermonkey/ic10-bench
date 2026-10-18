@@ -106,3 +106,15 @@ that way:
 	}
 }
 ```
+
+To have the project's tests catch a mapped script that was renamed or moved, call
+`checkStations(root)`: it returns each chip, in every station's map, whose script the project
+doesn't have, and throws for a map that doesn't load.
+
+```ts
+import { checkStations } from "@tasermonkey/ic10-link";
+
+it("maps chips only to scripts that exist", () => {
+	expect(checkStations(REPO_ROOT)).toEqual([]);
+});
+```

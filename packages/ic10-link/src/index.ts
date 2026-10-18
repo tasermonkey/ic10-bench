@@ -17,7 +17,17 @@ export { documentsFolder, expandWindowsVariables, windowsDocuments } from "./gam
 
 // The project's side: its station maps.
 export { adoptChip, chipId, type MapResult, mapChip, unmapChip } from "./project/mapping.ts";
-export { type ChipEntry, loadStation, STATIONS_DIR, type StationMap, saveStation, scriptPath, stationFile } from "./project/stations.ts";
+export {
+	type ChipEntry,
+	checkStations,
+	loadStation,
+	type MissingScript,
+	STATIONS_DIR,
+	type StationMap,
+	saveStation,
+	scriptPath,
+	stationFile,
+} from "./project/stations.ts";
 
 // Comparing and copying between the two.
 export { checkScript, type GateOptions, type GateResult, projectTests, projectVitest, type TestRun } from "./sync/gate.ts";

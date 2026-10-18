@@ -9,8 +9,8 @@
  * written as just its path, and is saved that way. Paths are relative to the project, with forward
  * slashes.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 export const STATIONS_DIR = "stations";
 
@@ -59,6 +59,33 @@ export function saveStation(root: string, station: string, map: StationMap): voi
 	);
 	mkdirSync(dirname(file), { recursive: true });
 	writeFileSync(file, `${JSON.stringify({ ...map, chips }, null, "\t")}\n`);
+}
+
+/** A chip whose map names a script the project doesn't have. */
+export interface MissingScript {
+	/** The station's name, as its map's file has it. */
+	station: string;
+	/** The chip's id, as the map has it. */
+	id: string;
+	/** The missing script, as the map has it: relative to the project. */
+	script: string;
+}
+
+/**
+ * Every station map's chips whose script the project doesn't have (renamed or moved since), for a
+ * project's own test. Throws for a map that doesn't load.
+ */
+export function checkStations(root: string): MissingScript[] {
+	const dir = join(root, STATIONS_DIR);
+	if (!existsSync(dir)) return [];
+	const missing: MissingScript[] = [];
+	for (const file of readdirSync(dir).filter((name) => name.endsWith(".json"))) {
+		const station = basename(file, ".json");
+		for (const [id, { script }] of Object.entries(loadStation(root, station).chips)) {
+			if (!existsSync(resolve(root, script))) missing.push({ station, id, script });
+		}
+	}
+	return missing;
 }
 
 /**
