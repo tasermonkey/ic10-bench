@@ -40,7 +40,7 @@
 		"prepack": "npm run build"
 	},
 	"dependencies": {
-		"@tasermonkey/ic10-lint": "^1.0.2",
+		"@tasermonkey/ic10-lint": "^1.1.0",
 		"commander": "^15.0.0"
 	},
 	"peerDependencies": {

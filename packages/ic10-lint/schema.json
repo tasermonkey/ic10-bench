@@ -17,7 +17,7 @@
 		},
 		"overrides": {
 			"type": "object",
-			"description": "By script path from this file's folder, with /. Each needs a reason.",
+			"description": "By script path from this file's folder, with /, or a pattern with * or ** for every script it matches (rules only, no limits). Each needs a reason.",
 			"additionalProperties": {
 				"type": "object",
 				"required": ["reason"],

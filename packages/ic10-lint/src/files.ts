@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { type LintConfig, projectRelative } from "./config.ts";
+import { isPattern, type LintConfig, overrideFor, overrideMatches, projectRelative } from "./config.ts";
 import { lint } from "./lint.ts";
 import type { BatchOpCatalog, Finding } from "./types.ts";
 
@@ -30,7 +30,7 @@ export function findScripts(dir: string): string[] {
 /** Lint one file with the project's config: its rules, and the file's override if it has one. */
 export async function lintFile(file: string, config: LintConfig, catalog?: BatchOpCatalog): Promise<FileReport> {
 	const path = projectRelative(config.root, file);
-	const override = config.overrides[path];
+	const override = overrideFor(config, path);
 	const findings = await lint(readFileSync(resolve(config.root, file), "utf8"), {
 		catalog,
 		rules: { ...config.rules, ...override?.rules },
@@ -51,14 +51,13 @@ export async function lintFiles(paths: string[], config: LintConfig, catalog?: B
 }
 
 /**
- * Lint every script in the config's `dir`. An override for a script that isn't there is reported
- * against that path, so it gets removed.
+ * Lint every script in the config's `dir`. An override for a script that isn't there, or a pattern
+ * that matches none, is reported against that path, so it gets removed.
  */
 export async function lintProject(config: LintConfig, catalog?: BatchOpCatalog): Promise<FileReport[]> {
 	const reports = await lintFiles([config.dir], config, catalog);
-	const seen = new Set(reports.map((r) => r.path));
 	for (const path of Object.keys(config.overrides)) {
-		if (seen.has(path)) continue;
+		if (reports.some((r) => overrideMatches(path, r.path))) continue;
 		const file = resolve(config.root, path);
 		reports.push({
 			path,
@@ -69,9 +68,11 @@ export async function lintProject(config: LintConfig, catalog?: BatchOpCatalog):
 					severity: "error",
 					line: 0,
 					column: 0,
-					message: existsSync(file)
-						? `the override is for a script outside "${projectRelative(config.root, config.dir)}"`
-						: "the override is for a script that doesn't exist; remove it",
+					message: isPattern(path)
+						? `the override's pattern matches no script in "${projectRelative(config.root, config.dir)}"; remove it`
+						: existsSync(file)
+							? `the override is for a script outside "${projectRelative(config.root, config.dir)}"`
+							: "the override is for a script that doesn't exist; remove it",
 					text: "",
 				},
 			],

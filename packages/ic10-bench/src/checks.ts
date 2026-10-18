@@ -22,6 +22,8 @@ import {
 	lintFile,
 	loadConfig,
 	normalizeSeverity,
+	overrideFor,
+	overrideMatches,
 	parseLiteral,
 	parseScript,
 	projectRelative,
@@ -135,7 +137,7 @@ export function describeScriptChecks(options: ScriptChecksOptions = {}): void {
 	const config = loadConfig(root, options.config);
 	const catalog = loadCatalog(root);
 	const scripts = existsSync(config.dir) ? findScripts(config.dir) : [];
-	const idleSeverity = (file: string) => config.overrides[projectRelative(root, file)]?.rules?.idle ?? config.rules.idle ?? "error";
+	const idleSeverity = (file: string) => overrideFor(config, projectRelative(root, file))?.rules?.idle ?? config.rules.idle ?? "error";
 
 	const reports = new Map<string, Promise<FileReport>>();
 	const lintOnce = (file: string) => {
@@ -150,8 +152,8 @@ export function describeScriptChecks(options: ScriptChecksOptions = {}): void {
 		});
 
 		it("has overrides only for scripts that exist", () => {
-			const known = new Set(scripts.map((file) => projectRelative(root, file)));
-			expect(Object.keys(config.overrides).filter((path) => !known.has(path))).toEqual([]);
+			const known = scripts.map((file) => projectRelative(root, file));
+			expect(Object.keys(config.overrides).filter((key) => !known.some((path) => overrideMatches(key, path)))).toEqual([]);
 		});
 
 		for (const file of scripts) {

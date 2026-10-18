@@ -1,6 +1,15 @@
 export { type BatchOpFinding, type BatchOpProblem, checkBatchOps } from "./batch-ops.ts";
 export { type CliIo, fileLink, readCatalog, runCli, wantsColor } from "./cli.ts";
-export { CONFIG_FILE, type FileOverride, type LintConfig, loadConfig, projectRelative } from "./config.ts";
+export {
+	CONFIG_FILE,
+	type FileOverride,
+	isPattern,
+	type LintConfig,
+	loadConfig,
+	overrideFor,
+	overrideMatches,
+	projectRelative,
+} from "./config.ts";
 export { type FileReport, findScripts, lintFile, lintFiles, lintProject } from "./files.ts";
 export { type InitOptions, initConfig, type RecommendedConfig, recommendedConfig } from "./init.ts";
 export { GAME_LIMITS, gameSize, type LimitName, type LimitOverride } from "./limits.ts";

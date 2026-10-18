@@ -36,7 +36,8 @@ with every rule at its default severity.
       "reason": "over the limits in the save; trim it later",
       "limits": { "lines": 162, "bytes": 5135 }
     },
-    "ic10/Debug.ic10": { "reason": "a debug chip", "rules": { "unused": "off" } }
+    "ic10/Debug.ic10": { "reason": "a debug chip", "rules": { "unused": "off" } },
+    "ic10/Audit/**": { "reason": "checks the game's errors, so fails on purpose", "rules": { "validate": "off", "idle": "off" } }
   }
 }
 ```
@@ -45,7 +46,7 @@ with every rule at its default severity.
 |---|---|---|
 | `dir` | `ic10` | The folder of scripts to check when you don't name any, subfolders included (but not `node_modules` or folders starting with `.`). |
 | `rules` | each rule's default | A severity for any rule: `"error"`, `"warn"`, `"info"` or `"off"`. |
-| `overrides` | none | Settings for one script, by its path from the project's folder, with `/`. See below. |
+| `overrides` | none | Settings for one script, by its path from the project's folder, with `/`, or for every script a pattern matches. See below. |
 
 ### Overrides
 
@@ -58,6 +59,13 @@ with every rule at its default severity.
 Past the number in `limits`, it's an error again. Shrink the script and you're told to lower the
 number; get it under the game's limit and you're told to remove the override. An override for a
 script that's gone is an error too, so they don't pile up.
+
+A key with a `*` is a pattern: `*` matches within a folder, `**` across folders, so
+`ic10/Audit/**` is every script under `ic10/Audit/`. Only a `*` makes a key a pattern, so a script
+named with brackets, like `ic10/Air [7335].ic10`, is still just that script. A pattern sets `rules`
+only, since `limits` are one script's allowance. A script takes the rules of every pattern that
+matches it, in the file's order, then its own entry's, each over the ones before. A pattern that
+matches no script is an error, like an override for a script that's gone.
 
 The config is a file and not comments in the scripts, because a comment costs a script lines and
 characters. IC10 Bench reads the same file (its `idle` check takes a severity here too).

@@ -5,14 +5,18 @@
  *     "dir": "ic10",
  *     "rules": { "unused": "off", "register-flow": "info" },
  *     "overrides": {
- *       "ic10/Big Script.ic10": { "reason": "over the limits; trim later", "limits": { "lines": 161 } }
+ *       "ic10/Big Script.ic10": { "reason": "over the limits; trim later", "limits": { "lines": 161 } },
+ *       "ic10/Audit/**": { "reason": "fail in game on purpose", "rules": { "validate": "off" } }
  *     }
  *   }
+ *
+ * A key with a `*` is a pattern, for every script it matches; it sets rules only, since limits are
+ * one script's allowance.
  *
  * It's a file rather than comments in the scripts, because a comment costs a script lines and bytes.
  */
 import { existsSync, readFileSync } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { isAbsolute, join, posix, relative, resolve } from "node:path";
 import { GAME_LIMITS, type LimitName, type LimitOverride } from "./limits.ts";
 import type { SeveritySetting } from "./types.ts";
 
@@ -31,7 +35,7 @@ export interface LintConfig {
 	/** The scripts' folder, absolute (default: `ic10` in the project). */
 	dir: string;
 	rules: Record<string, SeveritySetting>;
-	/** By script path relative to `root`, with forward slashes. */
+	/** By script path relative to `root`, with forward slashes, or a pattern (`isPattern`); `overrideFor` finds a script's. */
 	overrides: Record<string, FileOverride>;
 }
 
@@ -53,6 +57,33 @@ function checkRules(file: string, where: string, rules: unknown): Record<string,
 /** A path relative to the project, with forward slashes, as the config's `overrides` keys are. */
 export function projectRelative(root: string, path: string): string {
 	return relative(root, resolve(root, path)).replaceAll("\\", "/");
+}
+
+/**
+ * Whether an `overrides` key is a pattern (`ic10/Audit/**`) rather than one script's path. Only a
+ * `*` makes one, since script names can have brackets: `Air [7335].ic10`.
+ */
+export function isPattern(key: string): boolean {
+	return key.includes("*");
+}
+
+/** Whether an `overrides` key is for the script at `path` (relative to the project, with `/`). */
+export function overrideMatches(key: string, path: string): boolean {
+	return isPattern(key) ? posix.matchesGlob(path, key) : key === path;
+}
+
+/**
+ * The script's override, at `path` (relative to the project, with `/`): the rules of every pattern
+ * that matches it, in the config's order, then its own entry's, each over those before. The reason
+ * and limits are its own entry's, if it has one.
+ */
+export function overrideFor(config: LintConfig, path: string): FileOverride | undefined {
+	const own = config.overrides[path];
+	const patterns = Object.entries(config.overrides)
+		.filter(([key]) => isPattern(key) && overrideMatches(key, path))
+		.map(([, override]) => override);
+	if (patterns.length === 0) return own;
+	return { ...patterns[0]!, ...own, rules: Object.assign({}, ...patterns.map((p) => p.rules), own?.rules) };
 }
 
 /**
@@ -82,6 +113,7 @@ export function loadConfig(root: string = process.cwd(), file?: string): LintCon
 		const where = `overrides["${script}"]`;
 		const override = value as FileOverride;
 		if (typeof override?.reason !== "string" || !override.reason) fail(path, `${where} needs a "reason"`);
+		if (isPattern(script) && override.limits !== undefined) fail(path, `${where} is a pattern: limits are for one script, so a pattern sets rules only`);
 		for (const [limit, n] of Object.entries(override.limits ?? {})) {
 			if (!(limit in GAME_LIMITS)) fail(path, `${where}.limits.${limit}: the limits are lines, columns and bytes`);
 			if (!Number.isInteger(n) || n <= GAME_LIMITS[limit as LimitName]) {

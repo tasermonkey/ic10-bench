@@ -60,6 +60,11 @@ override that's stale or bigger than needed, and `overLimit()` turns a finding w
 or under the game's are errors, with the file's name). `lintFile` applies the project's rules, then
 the script's override. `lintProject` also reports overrides for scripts that aren't there.
 
+An `overrides` key with a `*` is a pattern (`isPattern`): only a `*`, since script names can have
+brackets. `overrideFor` merges a script's override from every pattern that matches it, then its own
+entry; use it rather than indexing `overrides` (IC10 Bench's `idle` check does too). A pattern can't
+have `limits`, which are one script's allowance.
+
 ## The CLI
 
 `bin/ic10-lint.ts` calls `runCli` (`src/cli.ts`), which takes the arguments and an `out` function
