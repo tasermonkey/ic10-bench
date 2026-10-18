@@ -479,4 +479,5 @@ and `planter(station)`.
 | `findScripts(dir)` | Every `.ic10` file under a folder. |
 | `Mixture`, `Reservoir` | The gas classes, for working with gas outside a world. |
 | `describeScriptChecks()` | From `@tasermonkey/ic10-bench/checks`: the [script checks](#script-checks). |
+| `testsNamingScript(root, script, include?, exclude?)` | From `@tasermonkey/ic10-bench/related-tests`: the test files under `root` whose text has the script's file name, the ones watch mode reruns when it changes. Doesn't load Vitest. |
 | `checkBatchOps(source, catalog)` | The `devices` check on its own, for one script. |

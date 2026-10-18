@@ -8,6 +8,7 @@ import { prefabPropsSource, projectTypesSource } from "../src/catalog/types.ts";
 import { canAccess, type CatalogPrefab, loadCatalog, prefabInfo } from "../src/catalog/catalog.ts";
 import { defineIc10Config } from "../src/config.ts";
 import { projectPaths, ROOT_ENV } from "../src/project.ts";
+import { testsNamingScript } from "../src/related-tests.ts";
 
 const VENT: SourceDevice = {
 	PrefabName: "StructureActiveVent",
@@ -198,6 +199,24 @@ describe("defineIc10Config", () => {
 		expect(trigger!.pattern.test(changed)).toBe(true);
 		expect(trigger!.testsToRun(changed, changed.match(trigger!.pattern)!)).toEqual([join(root, "tests/rooms/lights.test.ts")]);
 		expect(trigger!.testsToRun(join(root, "ic10/airlock.ic10"), [] as unknown as RegExpMatchArray)).toEqual([join(root, "tests/airlock.test.ts")]);
+	});
+
+	it("finds a script's tests with Vitest's own include when given none (testsNamingScript)", () => {
+		const root = mkdtempSync(join(tmpdir(), "ic10-bench-related-"));
+		const files = {
+			"tests/lights.test.ts": '"ic10/lights [12].ic10"',
+			"src/lights.spec.js": '"lights [12].ic10"',
+			"node_modules/x/lights.test.ts": '"lights [12].ic10"',
+			"tests/other.test.ts": '"other.ic10"',
+		};
+		for (const [path, text] of Object.entries(files)) {
+			mkdirSync(join(root, path, ".."), { recursive: true });
+			writeFileSync(join(root, path), text);
+		}
+		expect(testsNamingScript(root, join(root, "ic10", "lights [12].ic10")).sort()).toEqual([
+			join(root, "src/lights.spec.js"),
+			join(root, "tests/lights.test.ts"),
+		]);
 	});
 
 	it("leaves .ic10 files unwatched with watchScripts: false", () => {

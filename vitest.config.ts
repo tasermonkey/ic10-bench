@@ -15,6 +15,8 @@ export default defineConfig({
 			"packages/ic10-lint",
 			// The harness's own tests, with their fixture project (packages/ic10-bench/vitest.config.ts).
 			"packages/ic10-bench",
+			// ic10-link's own tests (packages/ic10-link/vitest.config.ts).
+			"packages/ic10-link",
 			defineIc10Config({
 				// Resolve @tasermonkey/ic10 and @tasermonkey/ic10-bench to their TypeScript sources (the
 				// "source" export condition), so tests run against the checkouts without building them.
