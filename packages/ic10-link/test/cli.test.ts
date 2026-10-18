@@ -61,7 +61,7 @@ describe("ic10-link status", () => {
 		const { chipdata, project } = setup();
 		expect((await run(project, "status", "--chipdata", "nowhere")).code).toBe(2);
 		expect((await run(project, "status", "--chipdata", chipdata.root, "--station", "Gone")).output).toContain('no station "Gone"');
-		expect((await run(project, "status", "--nope", "1")).output).toContain("--nope: unknown option");
+		expect((await run(project, "status", "--nope", "1")).output).toContain("unknown option '--nope'");
 		expect((await run(project, "frobnicate")).code).toBe(2);
 		expect((await run(project)).code).toBe(2);
 	});
@@ -70,7 +70,13 @@ describe("ic10-link status", () => {
 		const { project } = setup();
 		const { code, output } = await run(project, "--help");
 		expect(code).toBe(0);
-		expect(output).toContain("Usage: ic10-link status");
+		expect(output).toContain("Usage: ic10-link <command> [options]");
+		expect(output).toContain("A station's map, stations/<station>.json");
+		const once = await run(project, "once", "--help");
+		expect(once.code).toBe(0);
+		expect(once.output).toContain("Usage: ic10-link once [options]");
+		expect(once.output).toContain("--no-tests");
+		expect(once.output).toContain("--chipdata <folder>");
 	});
 });
 
@@ -155,8 +161,8 @@ describe("ic10-link map, adopt and unmap", () => {
 
 	it("exits 2 for the wrong number of arguments", async () => {
 		const { chipdata, project } = setup();
-		expect((await run(project, "map", "450", "--chipdata", chipdata.root)).output).toContain("map takes a chip id and a script");
-		expect((await run(project, "unmap", "--chipdata", chipdata.root)).output).toContain("unmap takes a chip id");
+		expect((await run(project, "map", "450", "--chipdata", chipdata.root)).output).toContain("missing required argument 'script'");
+		expect((await run(project, "unmap", "--chipdata", chipdata.root)).output).toContain("missing required argument 'id'");
 		expect((await run(project, "status", "extra", "--chipdata", chipdata.root)).code).toBe(2);
 	});
 });
@@ -199,7 +205,7 @@ describe("ic10-link once", () => {
 			throw new Error("not to be called");
 		};
 		expect((await runWith(project, { findTests }, "once", "--no-tests", "--chipdata", chipdata.root)).output).toContain("tests not run (--no-tests)");
-		expect((await run(project, "status", "--no-tests", "--chipdata", chipdata.root)).output).toContain("--no-tests: unknown option");
+		expect((await run(project, "status", "--no-tests", "--chipdata", chipdata.root)).output).toContain("unknown option '--no-tests'");
 
 		writeFileSync(join(project.root, "stations", "Base.json"), '{ "chips": {} }');
 		expect((await run(project, "once", "--chipdata", chipdata.root)).output).toContain("No chips mapped in Base yet");

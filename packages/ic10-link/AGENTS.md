@@ -6,7 +6,7 @@ with the IC10Sync mod (C#, in the game), which this works with.
 ## Layout rules
 
 The package depends on `@tasermonkey/ic10-lint` (to read a script as the game does, and to lint
-before sending it) and Node built-ins only. IC10 Bench and Vitest are optional peers, and never
+before sending it), `commander` (the command line) and Node built-ins only. IC10 Bench and Vitest are optional peers, and never
 imported from here: `src/sync/gate.ts` loads the *project's* copies (`createRequire` from the project's
 `package.json`), so the tests run with the project's versions and config.
 
@@ -17,7 +17,10 @@ with `npm test` here, or in the repo root's `npm test`.
 ## Layout
 
 `src/` has a folder per side of the link, one for the sync between them, and one for watching;
-`src/index.ts` exports from all of them, and `src/cli.ts` is the command line on top.
+`src/index.ts` exports from all of them, and `src/cli.ts` is the command line on top: a table of
+commands, each a function of its arguments, its options and `CliIo`, which commander parses for.
+Commander never exits or writes itself (`exitOverride()`, `configureOutput()` to `io.out`), so a
+REPL can run commands through `runCli` later.
 
 | Folder | What's in it |
 | --- | --- |

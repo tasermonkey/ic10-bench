@@ -22,7 +22,7 @@ is the project's folder.
 | `--chipdata <folder>` | `IC10_CHIPDATA`, else `<Documents>\My Games\Stationeers\chipdata` | The IC10Sync mod's folder. The Documents folder is read from Windows' registry, so it's found even when OneDrive has moved it. |
 | `--station <name>` | The station played most recently | Which of the chipdata folder's stations to use. |
 | `--no-tests` | | `once` and `watch`: check lint only, without running tests. |
-| `--help` | | The usage. |
+| `--help` | | The usage: `ic10-link --help` lists the commands, `ic10-link <command> --help` gives a command's options. |
 
 ## Exit codes
 
