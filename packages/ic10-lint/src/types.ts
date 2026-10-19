@@ -1,4 +1,4 @@
-import type { LimitOverride } from "./limits.ts";
+import type { LimitOverride } from "./game-limits.ts";
 import type { Script } from "./source.ts";
 
 export type Severity = "error" | "warning" | "info";

@@ -57,7 +57,8 @@ export { newSession, type Outcome, type OutcomeKind, PRESERVED_DIR, type Session
 export { gameText } from "./sync/text.ts";
 
 // The REPL.
-export { type ReplOptions, repl, type Terminal } from "./repl/repl.ts";
+export type { Terminal } from "./io.ts";
+export { type ReplOptions, repl } from "./repl/repl.ts";
 export { splitWords } from "./repl/words.ts";
 
 // Watching for changes.

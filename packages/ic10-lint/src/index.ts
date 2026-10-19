@@ -1,5 +1,5 @@
 export { type BatchOpFinding, type BatchOpProblem, checkBatchOps } from "./batch-ops.ts";
-export { type CliIo, fileLink, readCatalog, runCli, wantsColor } from "./cli.ts";
+export { type CliIo, fileLink, PROJECT_CATALOG, projectCatalog, readCatalog, runCli, wantsColor } from "./cli.ts";
 export { runProgram } from "./program.ts";
 export {
 	CONFIG_FILE,

@@ -9,7 +9,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { projectPaths } from "../project.ts";
-import type { CatalogPrefab } from "./catalog.ts";
+import type { CatalogPrefab } from "./schema.ts";
 
 /** A workshop mod, from its About/About.xml. */
 export interface InstalledMod {

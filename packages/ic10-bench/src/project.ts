@@ -7,6 +7,7 @@
  *   ic10-bench-env.d.ts        the project's prefab types (`ic10-bench catalog`); git-ignore it, it holds game text
  */
 import { join, resolve } from "node:path";
+import { PROJECT_CATALOG } from "@tasermonkey/ic10-lint";
 
 export const ROOT_ENV = "IC10_BENCH_ROOT";
 
@@ -34,7 +35,7 @@ export function projectPaths(root: string = projectRoot()): ProjectPaths {
 		root,
 		mods: join(root, "ic10-mods"),
 		local,
-		catalog: join(local, "catalog.json"),
+		catalog: join(root, PROJECT_CATALOG),
 		machine: join(local, "machine.json"),
 		envTypes: join(root, "ic10-bench-env.d.ts"),
 	};

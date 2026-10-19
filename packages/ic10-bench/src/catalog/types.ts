@@ -5,7 +5,7 @@
  * - a project's ic10-bench-env.d.ts (`ic10-bench catalog`): every prefab, the project's mods
  *   included, with the game's descriptions, as an augmentation of `ProjectPrefabs` (src/prefabs.ts).
  */
-import type { Access, Catalog, CatalogPrefab } from "./catalog.ts";
+import type { Access, Catalog, CatalogPrefab } from "./schema.ts";
 
 /** The module a project's ic10-bench-env.d.ts augments. */
 export const PREFABS_MODULE = "@tasermonkey/ic10-bench/prefabs";

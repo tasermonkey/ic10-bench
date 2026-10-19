@@ -4,11 +4,10 @@
  * with the project's own Vitest and config.
  */
 import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
-import { lintFile, loadConfig, readCatalog } from "@tasermonkey/ic10-lint";
+import { lintFile, loadConfig, projectCatalog } from "@tasermonkey/ic10-lint";
 
 export interface TestRun {
 	ok: boolean;
@@ -64,8 +63,7 @@ export function projectVitest(root: string, files: string[]): Promise<TestRun> {
 export async function checkScript(script: string, options: GateOptions): Promise<GateResult> {
 	const { root } = options;
 	const config = loadConfig(root);
-	const catalogFile = join(root, ".ic10-bench", "catalog.json");
-	const lint = await lintFile(script, config, existsSync(catalogFile) ? readCatalog(catalogFile) : undefined);
+	const lint = await lintFile(script, config, projectCatalog(root));
 	const errors = lint.findings.filter((finding) => finding.severity === "error");
 	if (errors.length > 0) {
 		return {

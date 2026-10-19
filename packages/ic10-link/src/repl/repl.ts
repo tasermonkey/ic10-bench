@@ -9,14 +9,8 @@
  * readers of the terminal would each get the keys; without a terminal, it's asked by number.
  */
 import { clearLine, createInterface, cursorTo } from "node:readline";
-import type { CliIo } from "../cli.ts";
+import type { CliIo, Terminal } from "../io.ts";
 import { splitWords } from "./words.ts";
-
-/** The REPL's input and output: the terminal, or any streams (a pipe, a test). */
-export interface Terminal {
-	input: NodeJS.ReadableStream;
-	output: NodeJS.WritableStream & { isTTY?: boolean };
-}
 
 export interface ReplOptions {
 	terminal: Terminal;

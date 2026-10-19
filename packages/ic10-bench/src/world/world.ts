@@ -5,7 +5,7 @@ import type { ChipState, Scheduler } from "../scheduler/scheduler.ts";
 import { secondsToTicks } from "../scheduler/time.ts";
 import type { Cancel, EventOptions, EventQueue, Interval, ScheduledEvent, When, WorldEvent } from "./events.ts";
 import { type DeviceModel, ModelList, type WorldModel } from "./models.ts";
-import { type EnvWorldOptions, worldFromEnv } from "./from-env.ts";
+import type { EnvWorldOptions } from "./from-env.ts";
 import { type Change, diffSnapshots, Recording, type Snapshot } from "./snapshot.ts";
 import type { Mixture, Reservoir } from "../atmos/mixture.ts";
 import { GASES, type GasName, isGasName } from "../atmos/gases.ts";
@@ -50,7 +50,9 @@ export class World {
 	 * Build a world from emulator env JSON: an object, JSON text, or a path to a `.json` file.
 	 * Devices are keyed by their `name` when it's unique, otherwise by reference ID in `$hex` form.
 	 */
-	static fromEnv(env: EnvSchema | string, options?: EnvWorldOptions): Promise<World> {
+	static async fromEnv(env: EnvSchema | string, options?: EnvWorldOptions): Promise<World> {
+		// Loaded here: from-env.ts builds a World through sim.ts, which imports this file.
+		const { worldFromEnv } = await import("./from-env.ts");
 		return worldFromEnv(env, options);
 	}
 

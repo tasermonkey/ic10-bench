@@ -1,13 +1,13 @@
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { basename, relative, resolve } from "node:path";
 import { runProgram } from "@tasermonkey/ic10-lint";
-import { CHIPDATA_ENV, type FindOptions, findChipdata, findStation, type Station } from "./game/chipdata.ts";
+import { CHIPDATA_ENV, findChipdata, findStation, type Station } from "./game/chipdata.ts";
 import { adoptChip, chipId, type MapResult, mapChip, unmapChip } from "./project/mapping.ts";
 import { scriptPath, stationFile } from "./project/stations.ts";
 import { addPerChipNames, defineValues, perChipNames } from "./sync/defines.ts";
-import type { GateOptions } from "./sync/gate.ts";
+import type { CliIo } from "./io.ts";
 import { type Duplicate, type PerChipValue, stationStatus } from "./sync/status.ts";
-import { repl, type Terminal } from "./repl/repl.ts";
+import { repl } from "./repl/repl.ts";
 import { type SyncOptions, stationLabel, syncOnce } from "./sync/sync.ts";
 import { gameText } from "./sync/text.ts";
 import { watch } from "./watch/watch.ts";
@@ -37,24 +37,7 @@ const ABOUT_STATUS = `A chip relabelled in game has a file for each label, and t
 its current label. In a terminal, status asks which one that is, and deletes the others.
 Otherwise it lists them, and the exit code is 1.`;
 
-export interface CliIo extends Pick<GateOptions, "findTests" | "runTests"> {
-	/** The project: where stations/ is. */
-	cwd: string;
-	out: (text: string) => void;
-	/** Asks the player to pick one of `choices`, and returns its index. Only in an interactive terminal; throws if they cancel. */
-	choose?: (question: string, choices: string[]) => Promise<number>;
-	env?: NodeJS.ProcessEnv;
-	/** The Documents folder; for tests. Default reads Windows' registry. */
-	documents?: FindOptions["documents"];
-	/** Stops `watch`. */
-	signal?: AbortSignal;
-	/** What stops `watch`, as its first line says. Default `Ctrl+C`; the REPL's `stop`. */
-	stopWith?: string;
-	/** Colour the output (ic10-lint's `wantsColor()`). Default off. */
-	color?: boolean;
-	/** Where `repl` reads and writes; without it, `repl` can't run. */
-	terminal?: Terminal;
-}
+export type { CliIo, Terminal } from "./io.ts";
 
 /** `2026-10-16 21:40`, in local time. */
 function formatTime(ms: number): string {

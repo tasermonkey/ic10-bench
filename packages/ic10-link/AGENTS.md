@@ -20,7 +20,7 @@ with `npm test` here, or in the repo root's `npm test`.
 
 `src/` has a folder per side of the link, one for the sync between them, one for watching and one
 for the REPL; `src/index.ts` exports from all of them, and `src/cli.ts` is the command line on
-top: a table of commands, each a function of its arguments, its options and `CliIo`, which
+top (`src/io.ts` has `CliIo`, which it and the REPL share): a table of commands, each a function of its arguments, its options and `CliIo`, which
 commander parses for, through ic10-lint's `runProgram`. Commander never exits or writes itself, so
 the REPL runs each line through `runCli`.
 

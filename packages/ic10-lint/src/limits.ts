@@ -6,15 +6,9 @@
 import type { SourceLine } from "./source.ts";
 import type { RuleContext, Severity } from "./types.ts";
 
-export const GAME_LIMITS = { lines: 128, columns: 90, bytes: 4096 } as const;
+import { GAME_LIMITS, type LimitName, type LimitOverride } from "./game-limits.ts";
 
-export type LimitName = keyof typeof GAME_LIMITS;
-
-/** A project's allowance for one script that's over a limit: it may stay that size, but not grow. */
-export interface LimitOverride {
-	reason: string;
-	limits?: Partial<Record<LimitName, number>>;
-}
+export { GAME_LIMITS, type LimitName, type LimitOverride };
 
 /**
  * Where each line starts in the game's count of the script's size, and the total

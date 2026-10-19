@@ -55,6 +55,15 @@ export function readCatalog(file: string): BatchOpCatalog {
 	return json;
 }
 
+/** Where IC10 Bench (`ic10-bench catalog`) writes a project's device catalogue, relative to the project. */
+export const PROJECT_CATALOG = ".ic10-bench/catalog.json";
+
+/** The project's catalogue, if IC10 Bench has built one. */
+export function projectCatalog(root: string): BatchOpCatalog | undefined {
+	const file = join(root, PROJECT_CATALOG);
+	return existsSync(file) ? readCatalog(file) : undefined;
+}
+
 /**
  * Whether to colour output to `stream`: FORCE_COLOR if it's set, else a terminal with colours
  * (which `hasColors()` says no to under NO_COLOR). Pipes and files get plain text.
@@ -137,7 +146,7 @@ function init(options: Options, io: CliIo): number {
 async function lint(paths: string[], options: Options, io: CliIo): Promise<number> {
 	const links = options.links && (io.links ?? io.color ?? false);
 	const config = loadConfig(io.cwd, options.config);
-	const fallback = join(config.root, ".ic10-bench", "catalog.json");
+	const fallback = join(config.root, PROJECT_CATALOG);
 	const catalogFile = options.catalog ? resolve(io.cwd, options.catalog) : existsSync(fallback) && !io.catalog ? fallback : undefined;
 	const catalog = catalogFile ? readCatalog(catalogFile) : io.catalog;
 	const reports = paths.length > 0 ? await lintFiles(paths.map((p) => resolve(io.cwd, p)), config, catalog) : await lintProject(config, catalog);
