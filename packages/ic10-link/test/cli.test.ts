@@ -77,6 +77,10 @@ describe("ic10-link status", () => {
 		expect(once.output).toContain("Usage: ic10-link once [options]");
 		expect(once.output).toContain("--no-tests");
 		expect(once.output).toContain("--chipdata <folder>");
+		expect(once.output).toContain("A script's tests are the test files that name it");
+		expect(output).not.toContain("A script's tests");
+		expect((await run(project, "status", "--help")).output).toContain("A chip relabelled in game has a file for each label");
+		expect(output).not.toContain("relabelled");
 	});
 });
 

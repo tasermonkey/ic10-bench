@@ -44,6 +44,10 @@ export {
 export { newSession, type Outcome, type OutcomeKind, PRESERVED_DIR, type Session, type SyncOptions, syncOnce } from "./sync/sync.ts";
 export { gameText } from "./sync/text.ts";
 
+// The REPL.
+export { type ReplOptions, repl, type Terminal } from "./repl/repl.ts";
+export { splitWords } from "./repl/words.ts";
+
 // Watching for changes.
 export { SETTLE_MS, Scheduler } from "./watch/scheduler.ts";
 export { type ProjectChange, type WatchOptions, watch, watchProject, watchStation } from "./watch/watch.ts";

@@ -10,6 +10,7 @@
 | `ic10-link unmap <chip id>` | Takes the chip out of the map. Its script stays. |
 | `ic10-link once` | One pass: each mapped chip whose script changed gets the script, if it passes its [checks](#checks-before-sending), and each chip edited in game is copied back to its script. See [Passes](#passes). |
 | `ic10-link watch` | A pass at the start, then another whenever a script, a test, a station's map or a chip's file changes, until Ctrl+C. Each line it prints starts with the time, to match against the game's console. |
+| `ic10-link repl` | A prompt to run the commands one after another, without typing `ic10-link`. See [The REPL](#the-repl). |
 
 A chip id is the number in brackets in the chip's file name, with or without the brackets: `450`
 or `[450]` for `Script1 [450].ic10`. Script paths are relative to where you run the command, which
@@ -82,6 +83,25 @@ know which that is.
 | --- | --- |
 | A terminal | For each chip with several files, it asks which is current, from a list of them (when each changed, how many lines); pick one with the arrow keys and Enter. The others are deleted. "Skip" keeps them all; Ctrl+C stops, deleting nothing more. |
 | A pipe, CI, a script | It lists them and exits 1. |
+
+## The REPL
+
+`ic10-link repl` takes `--chipdata` and `--station`, and every command run in it uses them unless
+it gives its own. Quote a word with spaces: `map 450 "ic10/Tests/Sync Demo.ic10"`. Backslashes are
+kept as they are, for Windows' paths. Tab completes a command's name.
+
+| Typed | What it does |
+| --- | --- |
+| A command | Runs it, as `ic10-link <command>` would. |
+| `watch` | Starts watching in the background, and comes back to the prompt: its lines print above the prompt, which reads `ic10-link (watching)>`. `map`, `adopt` and `unmap` can run beside it, and it picks up their changes. `once` can't, since two passes at once would race. |
+| `stop` | Stops watching, after the pass it's in. |
+| `help` | Lists the commands. |
+| `exit`, `quit`, Ctrl+D | Leaves, stopping a watch first. Ctrl+C only drops what's typed. |
+
+A relabelled chip's question (see [Relabelled chips](#relabelled-chips)) is the same list as on the
+command line, picked with the arrow keys; the prompt comes back once it's answered, and a background
+watch's lines wait until then. With the REPL's input from a pipe rather than a terminal, it's asked
+at the prompt with the files numbered: the number is the answer.
 
 ## `stations/<station>.json`
 

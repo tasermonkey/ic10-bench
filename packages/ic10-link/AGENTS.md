@@ -17,11 +17,11 @@ with `npm test` here, or in the repo root's `npm test`.
 
 ## Layout
 
-`src/` has a folder per side of the link, one for the sync between them, and one for watching;
-`src/index.ts` exports from all of them, and `src/cli.ts` is the command line on top: a table of
-commands, each a function of its arguments, its options and `CliIo`, which commander parses for.
-Commander never exits or writes itself (`exitOverride()`, `configureOutput()` to `io.out`), so a
-REPL can run commands through `runCli` later.
+`src/` has a folder per side of the link, one for the sync between them, one for watching and one
+for the REPL; `src/index.ts` exports from all of them, and `src/cli.ts` is the command line on
+top: a table of commands, each a function of its arguments, its options and `CliIo`, which
+commander parses for. Commander never exits or writes itself (`exitOverride()`, `configureOutput()`
+to `io.out`), so the REPL runs each line through `runCli`.
 
 | Folder | What's in it |
 | --- | --- |
@@ -29,6 +29,7 @@ REPL can run commands through `runCli` later.
 | `src/project/` | The project's side. `stations.ts`: `stations/<station>.json`, chip ids to scripts. `mapping.ts`: `map`, `adopt` and `unmap`. |
 | `src/sync/` | Comparing and copying between the two. `text.ts`, `state.ts`, `gate.ts` (the checks before sending), `status.ts` (read only) and `sync.ts` (one pass). |
 | `src/watch/` | `watch.ts`: the watchers, which only report changes. `scheduler.ts`: when a pass runs. |
+| `src/repl/` | `repl.ts`: `ic10-link repl`. Every line typed goes through one queue. A command's question (a relabelled chip's files) is `io.choose`'s pick list, with the REPL's readline closed while it's open (two readers of the terminal would each get the keys) and opened again after, with its history; lines printed meanwhile are held until then. Without a terminal, the question is asked at the prompt by number. `watch` is `runCli(["watch", …])` left running, with its own `AbortController` for `stop`; output while the prompt waits is printed above it and the prompt redrawn. `words.ts`: splitting a line, quote-aware. |
 
 Text is always compared through `gameText()` (`src/sync/text.ts`), so a chip the game writes back
 after loading a file doesn't look like an edit.

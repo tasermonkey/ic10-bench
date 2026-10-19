@@ -13,6 +13,8 @@ const IGNORED = /^(node_modules|\.git|\.ic10-link|\.ic10-bench|coverage|reports)
 export interface WatchOptions extends SyncOptions {
 	/** Stops watching. */
 	signal?: AbortSignal;
+	/** What the player does to stop it, as the first line says. Default `Ctrl+C`. */
+	stopWith?: string;
 }
 
 /** What changed in the project: a script or a station's map, or code (a test, or a helper of one). */
@@ -67,7 +69,7 @@ export async function watch(options: WatchOptions): Promise<void> {
 		watchStation(options.station.dir, () => passes.changed()),
 	];
 
-	log(`Watching ${options.root} and ${options.station.dir}. Ctrl+C stops.`);
+	log(`Watching ${options.root} and ${options.station.dir}. ${options.stopWith ?? "Ctrl+C"} stops.`);
 	passes.run();
 	await aborted(options.signal);
 	for (const watcher of watchers) watcher.close();

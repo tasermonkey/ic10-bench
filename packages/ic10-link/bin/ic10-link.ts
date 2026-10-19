@@ -11,7 +11,7 @@ process.once("SIGINT", () => stop.abort());
 /** Asks in the terminal, with a list to pick from; only when someone is there to answer. */
 async function choose(message: string, choices: string[]): Promise<number> {
 	try {
-		return await select({ message, choices: choices.map((name, value) => ({ name, value })), loop: false }, { signal: stop.signal });
+		return await select({ message, choices: choices.map((name, value) => ({ name, value })), loop: false });
 	} catch (error) {
 		// Ctrl+C at the prompt: stop there, rather than go on to the next question.
 		if (error instanceof Error && ["ExitPromptError", "AbortPromptError"].includes(error.name)) throw new Error("Stopped.");
@@ -27,4 +27,5 @@ process.exitCode = await runCli(process.argv.slice(2), {
 	choose: process.stdin.isTTY && process.stdout.isTTY ? choose : undefined,
 	signal: stop.signal,
 	color: wantsColor(),
+	terminal: { input: process.stdin, output: process.stdout },
 });
