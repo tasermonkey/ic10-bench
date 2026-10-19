@@ -80,9 +80,14 @@ describe("the ic10-bench command", () => {
 		}
 	};
 
-	it("prints the usage for --help, and fails on an unknown command", () => {
-		expect(run("--help")).toMatchObject({ status: 0, out: expect.stringContaining("ic10-bench lint") });
-		expect(run("frobnicate").status).toBe(1);
+	it("prints the usage for --help, and exits 2 for an unknown command, as ic10-lint and ic10-link do", () => {
+		expect(run("--help")).toMatchObject({ status: 0, out: expect.stringContaining("lint ") });
+		expect(run("frobnicate").status).toBe(2);
+	});
+
+	it("hands lint everything after it, --help included", () => {
+		expect(run("lint", "--help")).toMatchObject({ status: 0, out: expect.stringContaining("Usage: ic10-bench lint [options]") });
+		expect(run("lint", "--fail-on", "info").status).toBe(2);
 	});
 
 	it("looks up a prefab", () => {

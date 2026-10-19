@@ -2,37 +2,38 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { styleText } from "node:util";
+import { Option } from "commander";
 import { loadConfig } from "./config.ts";
 import { type FileReport, lintFiles, lintProject } from "./files.ts";
 import { initConfig } from "./init.ts";
 import { atLeast } from "./lint.ts";
+import { runProgram } from "./program.ts";
 import { RULES } from "./rules/index.ts";
 import type { BatchOpCatalog, Severity } from "./types.ts";
 
-/** The usage, for the command named `name` (`ic10-bench lint` runs this too). */
-export const usageText = (name = "ic10-lint") => `Usage: ${name} [<folder> | <file.ic10> ...] [options]
-       ${name} init [--dir <folder>] [--config <file>] [--force] [--no-links]
-
-Checks IC10 scripts without running them. With no paths, checks the "dir" in ic10-lint.json
-(default ic10/).
-
-init writes a recommended ic10-lint.json: every rule at its default severity, and an override for
-each script in --dir (default ic10) already over a game limit, so it can stay that size but not
-grow. --force replaces a config that's there.
-
-Options:
-  --config <file>              the config (default: ic10-lint.json in the current folder)
-  --catalog <file>             a device catalogue (JSON with "prefabs"), for batch-ops and mods' names
-                               in hash-name; default: .ic10-bench/catalog.json if IC10 Bench built one
-  --fail-on <error | warning>  exit 1 if anything is at least this bad (default: error)
-  --format <text | json>       text: file:line:col severity rule message (1-based); json: the findings
-  --no-links                   in a terminal, don't make the paths clickable links (keeps the colours)
-  --help                       this, and the rules
-
-Colours and links are on in a terminal and off in a pipe; NO_COLOR=1 or FORCE_COLOR=1 overrides.
+/** After the options in `--help`. */
+const ABOUT = () => `Colours and links are on in a terminal and off in a pipe; NO_COLOR=1 or FORCE_COLOR=1 overrides.
 
 Rules:
 ${RULES.map((r) => `  ${r.id.padEnd(26)} ${r.description}`).join("\n")}`;
+
+/** After the options in `init --help`. */
+const ABOUT_INIT = `Every rule is at its default severity, and each script in --dir already over a game limit gets an
+override, so it can stay that size but not grow. --force replaces a config that's there.`;
+
+/** What the command line's options parse to. */
+interface Options {
+	config?: string;
+	catalog?: string;
+	failOn: Severity;
+	format: "text" | "json";
+	/** False for `--no-links`. */
+	links: boolean;
+	/** init. */
+	dir?: string;
+	/** init. */
+	force?: boolean;
+}
 
 export interface CliIo {
 	cwd: string;
@@ -115,82 +116,67 @@ function formatText(reports: FileReport[], showSkips: boolean, paint: Paint, lin
 	return lines;
 }
 
-function init(argv: string[], io: CliIo, usage: string): number {
-	const options: Record<string, string> = {};
-	let force = false;
-	let links = io.links ?? io.color ?? false;
-	for (let i = 0; i < argv.length; i++) {
-		const arg = argv[i]!;
-		if (arg === "--force") force = true;
-		else if (arg === "--no-links") links = false;
-		else if (["--dir", "--config"].includes(arg) && argv[i + 1] !== undefined) options[arg.slice(2)] = argv[++i]!;
-		else {
-			io.out(`${arg}: init takes --dir <folder>, --config <file>, --force and --no-links\n\n${usage}`);
-			return 2;
+/** `init`: writes a recommended config, and lists the overrides it made; returns the exit code. */
+function init(options: Options, io: CliIo): number {
+	const links = options.links && (io.links ?? io.color ?? false);
+	const { file, config } = initConfig(io.cwd, { dir: options.dir, file: options.config, force: options.force });
+	const overrides = Object.entries(config.overrides);
+	io.out(`Wrote ${file}`);
+	if (overrides.length === 0) io.out("No script is over the game's limits.");
+	else {
+		io.out(`Overrides for the ${overrides.length} scripts over the game's limits (they may shrink but not grow):`);
+		for (const [path, { limits }] of overrides) {
+			const name = fileLink(links, resolve(dirname(file), path), painter(io.color)(["bold", "cyan"], path));
+			io.out(`  ${name}: ${Object.entries(limits).map(([limit, n]) => `${limit} ${n}`).join(", ")}`);
 		}
 	}
-	try {
-		const { file, config } = initConfig(io.cwd, { dir: options.dir, file: options.config, force });
-		const overrides = Object.entries(config.overrides);
-		io.out(`Wrote ${file}`);
-		if (overrides.length === 0) io.out("No script is over the game's limits.");
-		else {
-			io.out(`Overrides for the ${overrides.length} scripts over the game's limits (they may shrink but not grow):`);
-			for (const [path, { limits }] of overrides) {
-				const name = fileLink(links, resolve(dirname(file), path), painter(io.color)(["bold", "cyan"], path));
-				io.out(`  ${name}: ${Object.entries(limits).map(([limit, n]) => `${limit} ${n}`).join(", ")}`);
-			}
-		}
-		return 0;
-	} catch (error) {
-		io.out((error as Error).message);
-		return 2;
-	}
+	return 0;
 }
+
+/** Lints the paths, or the config's `dir` with none; returns the exit code. */
+async function lint(paths: string[], options: Options, io: CliIo): Promise<number> {
+	const links = options.links && (io.links ?? io.color ?? false);
+	const config = loadConfig(io.cwd, options.config);
+	const fallback = join(config.root, ".ic10-bench", "catalog.json");
+	const catalogFile = options.catalog ? resolve(io.cwd, options.catalog) : existsSync(fallback) && !io.catalog ? fallback : undefined;
+	const catalog = catalogFile ? readCatalog(catalogFile) : io.catalog;
+	const reports = paths.length > 0 ? await lintFiles(paths.map((p) => resolve(io.cwd, p)), config, catalog) : await lintProject(config, catalog);
+
+	if (options.format === "json") io.out(JSON.stringify(reports.map(({ path, findings }) => ({ path, findings })), null, 2));
+	else io.out(formatText(reports, false, painter(io.color), links).join("\n"));
+	return reports.some((r) => r.findings.some((f) => atLeast(f.severity, options.failOn))) ? 1 : 0;
+}
+
+const NO_LINKS = "in a terminal, don't make the paths clickable links (keeps the colours)";
 
 /** Run the command line; returns the exit code. */
 export async function runCli(argv: string[], io: CliIo): Promise<number> {
-	const usage = usageText(io.name);
-	if (argv[0] === "init") return init(argv.slice(1), io, usage);
-	const paths: string[] = [];
-	const options: Record<string, string> = {};
-	let links = io.links ?? io.color ?? false;
-	for (let i = 0; i < argv.length; i++) {
-		const arg = argv[i]!;
-		if (arg === "--help" || arg === "-h") {
-			io.out(usage);
-			return 0;
-		}
-		if (arg === "--no-links") links = false;
-		else if (arg.startsWith("--")) {
-			const value = argv[++i];
-			if (!["--config", "--catalog", "--fail-on", "--format"].includes(arg) || value === undefined) {
-				io.out(`${arg}: unknown option, or no value\n\n${usage}`);
-				return 2;
-			}
-			options[arg.slice(2)] = value;
-		} else paths.push(arg);
-	}
-	const failOn = (options["fail-on"] ?? "error") as Severity;
-	const format = options.format ?? "text";
-	if (!["error", "warning"].includes(failOn) || !["text", "json"].includes(format)) {
-		io.out(`--fail-on takes error or warning, --format text or json\n\n${usage}`);
-		return 2;
-	}
-
-	try {
-		const config = loadConfig(io.cwd, options.config);
-		const fallback = join(config.root, ".ic10-bench", "catalog.json");
-		const catalogFile = options.catalog ? resolve(io.cwd, options.catalog) : existsSync(fallback) && !io.catalog ? fallback : undefined;
-		const catalog = catalogFile ? readCatalog(catalogFile) : io.catalog;
-		const reports =
-			paths.length > 0 ? await lintFiles(paths.map((p) => resolve(io.cwd, p)), config, catalog) : await lintProject(config, catalog);
-
-		if (format === "json") io.out(JSON.stringify(reports.map(({ path, findings }) => ({ path, findings })), null, 2));
-		else io.out(formatText(reports, false, painter(io.color), links).join("\n"));
-		return reports.some((r) => r.findings.some((f) => atLeast(f.severity, failOn))) ? 1 : 0;
-	} catch (error) {
-		io.out((error as Error).message);
-		return 2;
-	}
+	return runProgram(io.name ?? "ic10-lint", argv, io.out, (program, exit) => {
+		program
+			.description('Checks IC10 scripts without running them. With no paths, checks the "dir" in ic10-lint.json (default ic10/).')
+			// The checks' options are for them alone: init has its own --config and --no-links.
+			.enablePositionalOptions()
+			.argument("[paths...]", "folders or .ic10 files to check")
+			.option("--config <file>", "the config (default: ic10-lint.json in the current folder)")
+			.option(
+				"--catalog <file>",
+				'a device catalogue (JSON with "prefabs"), for batch-ops and mods\' names in hash-name; default: .ic10-bench/catalog.json if IC10 Bench built one',
+			)
+			.addOption(new Option("--fail-on <severity>", "exit 1 if anything is at least this bad").choices(["error", "warning"]).default("error"))
+			.addOption(
+				new Option("--format <format>", "text: file:line:col severity rule message (1-based); json: the findings").choices(["text", "json"]).default("text"),
+			)
+			.option("--no-links", NO_LINKS)
+			.addHelpText("after", `\n${ABOUT()}`)
+			.action(async (paths: string[]) => exit(await lint(paths, program.opts<Options>(), io)));
+		const command = program
+			.command("init")
+			.description("writes a recommended ic10-lint.json")
+			.option("--dir <folder>", "the scripts' folder (default: ic10)")
+			.option("--config <file>", "where to write it (default: ic10-lint.json in the current folder)")
+			.option("--force", "replace a config that's there")
+			.option("--no-links", NO_LINKS)
+			.addHelpText("after", `\n${ABOUT_INIT}`)
+			.action(() => exit(init(command.opts<Options>(), io)));
+	});
 }

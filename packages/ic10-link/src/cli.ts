@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { basename, relative, resolve } from "node:path";
-import { Command, CommanderError } from "commander";
+import { runProgram } from "@tasermonkey/ic10-lint";
 import { CHIPDATA_ENV, type FindOptions, findChipdata, findStation, type Station } from "./game/chipdata.ts";
 import { adoptChip, chipId, type MapResult, mapChip, unmapChip } from "./project/mapping.ts";
 import { scriptPath, stationFile } from "./project/stations.ts";
@@ -289,42 +289,21 @@ const COMMANDS: CommandSpec[] = [
 	},
 ];
 
-/** The command line, for commander; `onExit` gets the exit code of the command that ran. */
-function program(io: CliIo, onExit: (code: number) => void): Command {
-	// Commander ends what it writes with a newline, and io.out adds one.
-	const write = (text: string) => io.out(text.replace(/\n$/, ""));
-	// Set before the commands are added, so they have it too.
-	const program = new Command("ic10-link")
-		.usage("<command> [options]")
-		.addHelpText("after", `\n${ABOUT}`)
-		.configureOutput({ writeOut: write, writeErr: write })
-		.showHelpAfterError()
-		.exitOverride();
-	for (const spec of COMMANDS) {
-		const command = program.command(spec.usage).description(spec.description);
-		if (spec.station !== false) {
-			command
-				.option("--chipdata <folder>", `the IC10Sync mod's folder (default: ${CHIPDATA_ENV}, else <Documents>\\My Games\\Stationeers\\chipdata)`)
-				.option("--station <name>", "the station (default: the one played most recently)");
-		}
-		if (spec.tests) command.option("--no-tests", "check lint only, without running tests");
-		if (spec.about) command.addHelpText("after", `\n${spec.about}`);
-		// A last argument like `<names...>` comes as a list: its words follow the others.
-		command.action(async () => onExit(await spec.run(command.processedArgs.flat(), command.opts<Options>(), io)));
-	}
-	return program;
-}
-
 /** Run the command line; returns the exit code. */
 export async function runCli(argv: string[], io: CliIo): Promise<number> {
-	let code = 0;
-	try {
-		await program(io, (exit) => (code = exit)).parseAsync(argv, { from: "user" });
-		return code;
-	} catch (error) {
-		// Commander has said what was wrong: 0 for --help, else a bad command line.
-		if (error instanceof CommanderError) return error.exitCode === 0 ? 0 : 2;
-		io.out((error as Error).message);
-		return 2;
-	}
+	return runProgram("ic10-link", argv, io.out, (program, exit) => {
+		program.usage("<command> [options]").addHelpText("after", `\n${ABOUT}`);
+		for (const spec of COMMANDS) {
+			const command = program.command(spec.usage).description(spec.description);
+			if (spec.station !== false) {
+				command
+					.option("--chipdata <folder>", `the IC10Sync mod's folder (default: ${CHIPDATA_ENV}, else <Documents>\\My Games\\Stationeers\\chipdata)`)
+					.option("--station <name>", "the station (default: the one played most recently)");
+			}
+			if (spec.tests) command.option("--no-tests", "check lint only, without running tests");
+			if (spec.about) command.addHelpText("after", `\n${spec.about}`);
+			// A last argument like `<names...>` comes as a list: its words follow the others.
+			command.action(async () => exit(await spec.run(command.processedArgs.flat(), command.opts<Options>(), io)));
+		}
+	});
 }

@@ -43,7 +43,12 @@ tarball> <this tarball> vitest`, add a `vitest.config.ts` with `defineIc10Config
 
 Everything the harness reads or writes for a user's project is under the project's folder:
 `IC10_BENCH_ROOT`, which `defineIc10Config` sets (`src/config.ts`), or the working directory
-(`src/project.ts`). `ic10-bench --project <folder>` sets it for the CLI.
+(`src/project.ts`). `ic10-bench --project <folder>` gives it to the CLI's commands.
+
+The CLI is `runCli` in `src/cli/cli.ts` (`bin/ic10-bench.ts` only wires it to the terminal), on
+commander through ic10-lint's `runProgram`, as ic10-lint's and ic10-link's are: `--help` is 0, a
+bad command line 2. `lint` takes no options of its own and hands every word after it to ic10-lint's
+`runCli`, its `--help` included.
 
 - `ic10-mods/<machine id>.json`: mods' devices, committed (`ic10-bench import-mods`).
 - `.ic10-bench/`: git-ignored. `catalog.json` (`ic10-bench catalog`) and `machine.json`.

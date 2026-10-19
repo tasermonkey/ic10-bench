@@ -72,7 +72,12 @@ and returns the exit code (0 clean, 1 findings at or above `--fail-on`, 2 a bad 
 so it's tested without a child process. `ic10-bench lint` calls the same function with the
 project's catalogue.
 
-`init` is handled first, with its own options. `src/init.ts` builds the config from `RULES` (each
+It's on commander, through `runProgram` (`src/program.ts`), which IC10 Bench's and ic10-link's
+command lines use too, so all three behave alike: commander writes through `out` and never exits
+on its own; `--help` is 0, a bad command line 2, an error an action throws is printed and is 2.
+
+`init` is a subcommand, with its own options (`enablePositionalOptions`, so the checks' `--config`
+and `--no-links` don't take init's). `src/init.ts` builds the config from `RULES` (each
 rule's default severity, `"off"` for `defaultOff`) and measures each script the way the limit rules
 do. That's the line count, the longest line of code, and `gameSize`. It writes an override only
 for a limit that would be an error: comment-only lines past 128 are just a warning, so they get
