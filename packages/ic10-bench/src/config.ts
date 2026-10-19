@@ -15,8 +15,9 @@
 import { extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mergeConfig, type ViteUserConfig } from "vitest/config";
-import { ROOT_ENV } from "./project.ts";
 import { testsNamingScript } from "./related-tests.ts";
+// Not from project.ts, which imports @tasermonkey/ic10-lint: see root-env.ts.
+import { ROOT_ENV } from "./root-env.ts";
 
 /** The matchers' setup file, beside this one (.ts in a checkout, .js once built). */
 const SETUP_FILE = fileURLToPath(new URL(`./matchers/vitest-setup${extname(fileURLToPath(import.meta.url))}`, import.meta.url));

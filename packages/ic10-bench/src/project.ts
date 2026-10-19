@@ -8,8 +8,9 @@
  */
 import { join, resolve } from "node:path";
 import { PROJECT_CATALOG } from "@tasermonkey/ic10-lint";
+import { ROOT_ENV } from "./root-env.ts";
 
-export const ROOT_ENV = "IC10_BENCH_ROOT";
+export { ROOT_ENV };
 
 export interface ProjectPaths {
 	root: string;
