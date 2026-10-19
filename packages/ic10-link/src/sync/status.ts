@@ -3,10 +3,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { type Chip, listChips, type Station } from "../game/chipdata.ts";
 import { loadStation } from "../project/stations.ts";
+import { defineValues, maskDefines, perChipNames } from "./defines.ts";
 import { gameText } from "./text.ts";
 
 export type MappedState =
-	/** The chip runs the script as it is. */
+	/** The chip runs the script as it is (but for the values of its per-chip defines). */
 	| "same"
 	/** The chip and the script differ. */
 	| "differs"
@@ -17,12 +18,23 @@ export type MappedState =
 	/** The chip has more than one file (it was relabelled), so which is current isn't known: see `duplicates`. */
 	| "several files";
 
+/** One of a script's per-chip defines (`defines.ts`), as a chip has it. */
+export interface PerChipValue {
+	name: string;
+	/** The chip's value; undefined when the chip has no such define. */
+	value?: string;
+	/** False for a name in the per-script file that the script doesn't define (a typo, or one since removed). */
+	inScript: boolean;
+}
+
 export interface MappedChip {
 	id: string;
 	/** Undefined when the chip isn't in the game, or has several files. */
 	label?: string;
 	script: string;
 	state: MappedState;
+	/** The script's per-chip defines, as this chip has them, when it's `same` or `differs` and the script has any. */
+	perChip?: PerChipValue[];
 }
 
 export interface UnmappedChip {
@@ -66,12 +78,22 @@ function lineCount(text: string): number {
 	return text === "" ? 0 : text.split("\n").length;
 }
 
-/** How a mapped chip, with its files in the station (none, one, or several), compares with its script (absolute). */
-function mappedState(script: string, files: Chip[]): MappedState {
-	if (!existsSync(script)) return "no script";
-	if (files.length === 0) return "not in game";
-	if (files.length > 1) return "several files";
-	return chipText(files[0]!) === gameText(readFileSync(script, "utf8")) ? "same" : "differs";
+/**
+ * How a mapped chip, with its files in the station (none, one, or several), compares with its
+ * script (absolute): but for the values of the script's per-chip defines, which it lists.
+ */
+function compare(script: string, files: Chip[]): Pick<MappedChip, "state" | "perChip"> {
+	if (!existsSync(script)) return { state: "no script" };
+	if (files.length === 0) return { state: "not in game" };
+	if (files.length > 1) return { state: "several files" };
+	const scriptText = gameText(readFileSync(script, "utf8"));
+	const text = chipText(files[0]!);
+	const names = perChipNames(script, scriptText);
+	const state = maskDefines(text, names) === maskDefines(scriptText, names) ? "same" : "differs";
+	if (names.length === 0) return { state };
+	const values = defineValues(text, names);
+	const inScript = defineValues(scriptText, names);
+	return { state, perChip: names.map((name) => ({ name, value: values.get(name), inScript: inScript.has(name) })) };
 }
 
 /** The station's chips against the project at `root`, and its `stations/<station>.json`. */
@@ -90,7 +112,7 @@ export function stationStatus(root: string, station: Station): StationStatus {
 		id,
 		label: chips.get(id)?.label,
 		script,
-		state: mappedState(resolve(root, script), byId.get(id) ?? []),
+		...compare(resolve(root, script), byId.get(id) ?? []),
 	}));
 
 	const unmapped = [...chips.values()]

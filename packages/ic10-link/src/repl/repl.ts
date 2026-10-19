@@ -22,8 +22,10 @@ export interface ReplOptions {
 	terminal: Terminal;
 	/** Runs one command line; `runCli`. */
 	run: (argv: string[], io: CliIo) => Promise<number>;
-	/** The commands `run` has, which take `--chipdata` and `--station`. */
+	/** The commands `run` has. */
 	commands: string[];
+	/** Those that take `--chipdata` and `--station`. */
+	withStation: string[];
 	/** `--chipdata` and `--station` as the REPL was started with, for each command that gives neither. */
 	defaults: { chipdata?: string; station?: string };
 }
@@ -201,7 +203,7 @@ export async function repl(io: CliIo, options: ReplOptions): Promise<number> {
 			print("Already watching. stop it first.");
 			continue;
 		}
-		const argv = options.commands.includes(name) ? withDefaults(words, options.defaults) : words;
+		const argv = options.withStation.includes(name) ? withDefaults(words, options.defaults) : words;
 
 		if (name === "watch") {
 			const stop = new AbortController();

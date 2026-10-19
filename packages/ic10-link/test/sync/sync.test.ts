@@ -17,7 +17,7 @@ const LOOP = "start:\nyield\nj start";
 const TOO_LONG = Array.from({ length: 130 }, () => "yield").join("\n");
 
 /** A station "Base" with chips, and a project with scripts mapping chip id → script. */
-function setup(chips: Record<string, string>, scripts: Record<string, string>, map: Record<string, string>) {
+function setup(chips: Record<string, string>, scripts: Record<string, string | object>, map: Record<string, string>) {
 	const chipdata = makeFolder(Object.fromEntries(Object.entries(chips).map(([name, text]) => [`Base/${name}`, text])));
 	const project = makeFolder({ ...scripts, "stations/Base.json": { chips: map } });
 	folders.push(chipdata, project);
@@ -211,5 +211,65 @@ describe("syncOnce", () => {
 		await syncOnce(s.options);
 		expect(s.log).toHaveLength(3);
 		expect(s.chip("Old [2].ic10")).toBe("");
+	});
+});
+
+describe("syncOnce, with per-chip defines", () => {
+	/** Room Lights, cut down: ROOM is per-chip (marked, or with marker "" for none), and `body` follows. */
+	const room = (value: string, body = "yield", marker = " # link-per-chip") => `define ROOM ${value}${marker}\nstart:\n${body}\nj start`;
+
+	it("counts a chip that differs only in a per-chip value as in sync, and writes nothing", async () => {
+		const s = setup({ "Lights [1].ic10": room('HASH("Hall Light")') }, { "ic10/room.ic10": room('HASH("Room Light")') }, { "1": "ic10/room.ic10" });
+		expect((await syncOnce(s.options)).map((o) => o.kind)).toEqual(["in sync"]);
+		expect(s.chip("Lights [1].ic10")).toBe(room('HASH("Hall Light")'));
+		expect(s.script("ic10/room.ic10")).toBe(room('HASH("Room Light")'));
+	});
+
+	it("sends a changed script with the chip's own value", async () => {
+		const s = setup({ "Lights [1].ic10": room('HASH("Hall Light")') }, { "ic10/room.ic10": room('HASH("Room Light")') }, { "1": "ic10/room.ic10" });
+		await syncOnce(s.options);
+		s.setScript("ic10/room.ic10", room('HASH("Room Light")', "sleep 1"));
+		expect((await syncOnce(s.options)).map((o) => o.kind)).toEqual(["deployed"]);
+		expect(s.chip("Lights [1].ic10")).toBe(room('HASH("Hall Light")', "sleep 1"));
+	});
+
+	it("sends the script's value to a chip that doesn't have the define yet", async () => {
+		const s = setup({ "Lights [1].ic10": "" }, { "ic10/room.ic10": room("1") }, { "1": "ic10/room.ic10" });
+		expect((await syncOnce(s.options)).map((o) => o.kind)).toEqual(["deployed"]);
+		expect(s.chip("Lights [1].ic10")).toBe(room("1"));
+	});
+
+	it("copies a chip edited in game to its script with the script's own value", async () => {
+		const s = setup({ "Lights [1].ic10": room("2") }, { "ic10/room.ic10": room("1") }, { "1": "ic10/room.ic10" });
+		await syncOnce(s.options);
+		s.setChip("Lights [1].ic10", room("2", "sleep 1"));
+		expect((await syncOnce(s.options)).map((o) => o.kind)).toEqual(["pulled"]);
+		expect(s.script("ic10/room.ic10")).toBe(`${room("1", "sleep 1")}\n`);
+		expect((await syncOnce(s.options)).map((o) => o.kind)).toEqual(["in sync"]);
+	});
+
+	it("doesn't copy a change to only a per-chip value in game", async () => {
+		const s = setup({ "Lights [1].ic10": room("1") }, { "ic10/room.ic10": room("1") }, { "1": "ic10/room.ic10" });
+		await syncOnce(s.options);
+		s.setChip("Lights [1].ic10", room("3"));
+		expect((await syncOnce(s.options)).map((o) => o.kind)).toEqual(["in sync"]);
+		expect(s.script("ic10/room.ic10")).toBe(room("1"));
+	});
+
+	it("takes per-chip names from the script's .json the same way", async () => {
+		const s = setup(
+			{ "Lights [1].ic10": room("2", "yield", "") },
+			{ "ic10/room.ic10": room("1", "yield", ""), "ic10/room.ic10.json": { perChip: { byDefineName: ["ROOM"] } } },
+			{ "1": "ic10/room.ic10" },
+		);
+		expect((await syncOnce(s.options)).map((o) => o.kind)).toEqual(["in sync"]);
+		s.setScript("ic10/room.ic10", room("1", "sleep 1", ""));
+		expect((await syncOnce(s.options)).map((o) => o.kind)).toEqual(["deployed"]);
+		expect(s.chip("Lights [1].ic10")).toBe(room("2", "sleep 1", ""));
+	});
+
+	it("stops, naming the file, for a bad .json", async () => {
+		const s = setup({ "Lights [1].ic10": "yield" }, { "ic10/room.ic10": "yield", "ic10/room.ic10.json": { perChip: [] } }, { "1": "ic10/room.ic10" });
+		await expect(syncOnce(s.options)).rejects.toThrow(/room\.ic10\.json: "perChip" must be an object/);
 	});
 });

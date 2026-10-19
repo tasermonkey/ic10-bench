@@ -49,6 +49,15 @@ describe("ic10-link status", () => {
 		expect(output).toContain("Empty, not mapped: [448] Integrated Circuit (IC10)\n");
 	});
 
+	it("counts a chip that differs only in its per-chip values as same, and shows them", async () => {
+		const { chipdata, project } = setup();
+		writeFileSync(join(chipdata.root, "Base", "Lights [451].ic10"), 'define ROOM HASH("Hall Light") # link-per-chip\nyield');
+		writeFileSync(join(project.root, "ic10", "lights.ic10"), 'define ROOM HASH("Room Light") # link-per-chip\nyield');
+		writeFileSync(join(project.root, "ic10", "lights.ic10.json"), JSON.stringify({ perChip: { byDefineName: ["MAX"] } }));
+		const { output } = await run(project, "status", "--chipdata", chipdata.root);
+		expect(output).toContain('[451] Lights -> ic10/lights.ic10: same (per chip: ROOM=HASH("Hall Light"), MAX not in the script)\n');
+	});
+
 	it("says when the station has no map yet", async () => {
 		const { chipdata } = setup();
 		const empty = makeFolder({});
@@ -168,6 +177,40 @@ describe("ic10-link map, adopt and unmap", () => {
 		expect((await run(project, "map", "450", "--chipdata", chipdata.root)).output).toContain("missing required argument 'script'");
 		expect((await run(project, "unmap", "--chipdata", chipdata.root)).output).toContain("missing required argument 'id'");
 		expect((await run(project, "status", "extra", "--chipdata", chipdata.root)).code).toBe(2);
+	});
+});
+
+describe("ic10-link per-chip", () => {
+	const perChipJson = (project: Folder) => readFileSync(join(project.root, "ic10", "lights.ic10.json"), "utf8");
+
+	it("makes <script>.json listing the names, tab-indented, and says which the script doesn't define yet", async () => {
+		const { project } = setup();
+		writeFileSync(join(project.root, "ic10", "lights.ic10"), "define ROOM 1\ndefine MAX 2 # link-per-chip\nyield");
+		const { code, output } = await run(project, "per-chip", "ic10/lights.ic10", "ROOM", "MAX", "LATER", "ROOM");
+		expect(code).toBe(0);
+		expect(output).toBe(
+			"MAX: already per-chip\nic10/lights.ic10.json: ROOM, LATER now per-chip\nLATER isn't defined in ic10/lights.ic10 yet; it's per-chip once it is.\n",
+		);
+		expect(perChipJson(project)).toBe('{\n\t"perChip": {\n\t\t"byDefineName": [\n\t\t\t"ROOM",\n\t\t\t"LATER"\n\t\t]\n\t}\n}\n');
+	});
+
+	it("adds to a .json there is, keeping what else it has", async () => {
+		const { project } = setup();
+		writeFileSync(join(project.root, "ic10", "lights.ic10.json"), JSON.stringify({ note: "kept", perChip: { byDefineName: ["ROOM"] } }));
+		expect((await run(project, "per-chip", "ic10/lights.ic10", "ROOM", "MAX")).output).toContain("ic10/lights.ic10.json: MAX now per-chip\n");
+		expect(JSON.parse(perChipJson(project))).toEqual({ note: "kept", perChip: { byDefineName: ["ROOM", "MAX"] } });
+		expect((await run(project, "per-chip", "ic10/lights.ic10", "MAX")).output).toBe("MAX: already per-chip\n");
+	});
+
+	it("refuses a script the project doesn't have, or a name that can't be a define's, and takes no station options", async () => {
+		const { project } = setup();
+		const missing = await run(project, "per-chip", "ic10/gone.ic10", "ROOM");
+		expect(missing.code).toBe(2);
+		expect(missing.output).toBe("ic10/gone.ic10: no such script\n");
+		expect((await run(project, "per-chip", "ic10/lights.ic10", "two words")).output).toBe("two words: not a define name\n");
+		expect((await run(project, "per-chip", "ic10/lights.ic10")).output).toContain("missing required argument 'names'");
+		expect((await run(project, "per-chip", "--help")).output).not.toContain("--chipdata");
+		expect(existsSync(join(project.root, "ic10", "lights.ic10.json"))).toBe(false);
 	});
 });
 

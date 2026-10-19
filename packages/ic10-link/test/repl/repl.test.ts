@@ -53,8 +53,9 @@ describe("ic10-link repl", () => {
 		const { chipdata, project } = setup();
 		writeFileSync(join(project.root, "ic10", "Sync Demo.ic10"), "yield");
 		const session = startRepl(project, chipdata);
-		session.type("status", 'map 452 "ic10/Sync Demo.ic10"', "exit");
+		session.type("status", 'map 452 "ic10/Sync Demo.ic10"', 'per-chip "ic10/Sync Demo.ic10" ROOM', "exit");
 		expect(await session.done).toBe(0);
+		expect(session.output()).toContain("ic10/Sync Demo.ic10.json: ROOM now per-chip\n");
 		expect(session.output()).toContain("watch runs in the background, and stop ends it.");
 		expect(session.output()).toContain("ic10-link> Station: Base\n");
 		expect(session.output()).toContain("Mapped [452] ? -> ic10/Sync Demo.ic10\n");

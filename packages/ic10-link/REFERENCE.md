@@ -10,6 +10,7 @@
 | `ic10-link unmap <chip id>` | Takes the chip out of the map. Its script stays. |
 | `ic10-link once` | One pass: each mapped chip whose script changed gets the script, if it passes its [checks](#checks-before-sending), and each chip edited in game is copied back to its script. See [Passes](#passes). |
 | `ic10-link watch` | A pass at the start, then another whenever a script, a test, a station's map or a chip's file changes, until Ctrl+C. Each line it prints starts with the time, to match against the game's console. |
+| `ic10-link per-chip <script.ic10> <name...>` | Makes the script's defines with those names [per-chip](#per-chip-defines), listed in `<script>.ic10.json` beside it: makes the file if there's none, keeps what else it has, and skips a name already per-chip. A name the script doesn't define yet is added, with a note. Takes no `--chipdata` or `--station`. |
 | `ic10-link repl` | A prompt to run the commands one after another, without typing `ic10-link`. See [The REPL](#the-repl). |
 
 A chip id is the number in brackets in the chip's file name, with or without the brackets: `450`
@@ -37,7 +38,7 @@ is the project's folder.
 
 | State | Meaning |
 | --- | --- |
-| `same` | The chip runs the script as it is (compared as the game reads them: trailing spaces, tabs and line endings don't count). |
+| `same` | The chip runs the script as it is (compared as the game reads them: trailing spaces, tabs and line endings don't count), but for the values of its [per-chip defines](#per-chip-defines), which `status` shows after the state. |
 | `differs` | The chip's code and the script differ. |
 | `no script` | The map names a script the project doesn't have. |
 | `not in game` | The game hasn't written the chip's file: the station isn't loaded yet, or the chip is gone. |
@@ -62,6 +63,32 @@ makes every mapped chip count as newly mapped on the next pass.
 
 A chip that has no file, several files or no script is skipped, with a line saying why. In `watch`,
 nothing is said twice about a chip until something changes.
+
+## Per-chip defines
+
+A script can say that some of its `define`s belong to each chip that runs it, such as the room a
+lights chip looks after. Their values then don't count as a change either way: a chip keeps its own
+value when it's sent the script, and the script keeps its own when it's sent a chip's edit, so one
+chip's value never becomes every chip's. A chip that differs from its script only in those values
+is `same`.
+
+The script says so itself, once for every chip and every station, in either of two ways:
+
+| Way | Looks like |
+| --- | --- |
+| A comment starting `link-per-chip` on the define's line. Anything after it is a note. | `define ROOM_LIGHT HASH("Room Light") # link-per-chip` |
+| `<script>.json` beside the script, naming them; `ic10-link per-chip <script> <name...>` writes it. | `Room Lights.ic10.json`: `{ "perChip": { "byDefineName": ["ROOM_LIGHT"] } }` |
+
+| Pass | With per-chip defines |
+| --- | --- |
+| Sending the script | Each per-chip define gets the chip's current value. A chip that doesn't have the define yet gets the script's. |
+| Copying a chip's edit to the script | Each per-chip define keeps the script's value. |
+| A chip whose only change in game is a per-chip value | Nothing: that's not an edit. |
+
+The names are read from the script in the project, never from the chip, so deleting a marker in
+game changes nothing. A `.json` that isn't as above stops the pass, with its name. A name in it that
+the script doesn't define shows in `status` as `not in the script`. `checkPerChipFiles(root)` lists
+the `.ic10.json` files whose script is gone, for a project's tests, beside `checkStations`.
 
 ## Checks before sending
 

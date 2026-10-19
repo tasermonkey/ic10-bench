@@ -12,12 +12,16 @@
  *
  * A chip with no record yet gets its script, since mapping it said it should run it; whatever it
  * had is kept in `.ic10-link/preserved/<station>/backups/` first. A chip emptied in game isn't copied to its script.
+ *
+ * The values of a script's per-chip defines (`defines.ts`) don't count as a change either way: a
+ * chip keeps its own when sent the script, and the script keeps its own when sent a chip's edit.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { styleText } from "node:util";
 import { type Chip, listChips, type Station } from "../game/chipdata.ts";
 import { loadStation } from "../project/stations.ts";
+import { defineValues, maskDefines, perChipNames, withDefines } from "./defines.ts";
 import { checkScript, type GateOptions, type GateResult } from "./gate.ts";
 import { loadState, saveState, STATE_DIR, textHash } from "./state.ts";
 import { gameText } from "./text.ts";
@@ -140,11 +144,13 @@ export async function syncOnce(options: SyncOptions): Promise<Outcome[]> {
 		const name = `[${id}] ${chip.label}`;
 		const scriptText = gameText(readFileSync(file, "utf8"));
 		const chipText = gameText(readFileSync(chip.path, "utf8"));
-		const scriptHash = textHash(scriptText);
-		const chipHash = textHash(chipText);
+		// Compared, and recorded, but for the values of the script's per-chip defines (defines.ts).
+		const perChip = perChipNames(file, scriptText);
+		const scriptHash = textHash(maskDefines(scriptText, perChip));
+		const chipHash = textHash(maskDefines(chipText, perChip));
 		const base = bases[id];
 
-		if (scriptText === chipText) {
+		if (scriptHash === chipHash) {
 			bases[id] = scriptHash;
 			session.said.set(id, "in sync");
 			outcomes.push({ id, script, kind: "in sync" });
@@ -159,9 +165,11 @@ export async function syncOnce(options: SyncOptions): Promise<Outcome[]> {
 				outcomes.push({ id, script, kind: "emptied" });
 				continue;
 			}
-			writeFileSync(file, `${chipText}\n`);
+			// With the script's values for its per-chip defines: one chip's aren't every chip's.
+			const pulled = withDefines(chipText, defineValues(scriptText, perChip));
+			writeFileSync(file, `${pulled}\n`);
 			bases[id] = chipHash;
-			const gate = await check(file, script, chipHash);
+			const gate = await check(file, script, textHash(pulled));
 			say(
 				id,
 				`pulled:${chipHash}`,
@@ -180,14 +188,15 @@ export async function syncOnce(options: SyncOptions): Promise<Outcome[]> {
 			// Said apart from the rest about the chip, which may follow it (sent, or not).
 			say(`${id} conflict`, `${scriptHash}:${chipHash}`, [`${where}/${name}: changed both in game and in ${script}; the game's code is kept in ${conflict}`]);
 		}
-		const gate = await check(file, script, scriptHash);
+		const gate = await check(file, script, textHash(scriptText));
 		if (!gate.ok) {
 			say(id, `blocked:${scriptHash}:${chipHash}`, [`${name}: not sent, ${script} failed its checks:`, ...gate.report.map((line) => `  ${line}`)]);
 			outcomes.push({ id, script, kind: "blocked", ...(conflict ? { conflict } : {}) });
 			continue;
 		}
 		if (base === undefined && chipText !== "") log(`${name}: its code before is kept in ${preserve(root, "backups", station, chip, chipText)}`);
-		writeFileSync(chip.path, scriptText);
+		// With the chip's own values for the per-chip defines it has.
+		writeFileSync(chip.path, withDefines(scriptText, defineValues(chipText, perChip)));
 		bases[id] = scriptHash;
 		say(id, `deployed:${scriptHash}`, [`${script} -> ${where}/${name} (${gate.report.join("; ")})`]);
 		outcomes.push({ id, script, kind: "deployed", ...(conflict ? { conflict } : {}) });

@@ -1,13 +1,15 @@
-import { rmSync } from "node:fs";
-import { basename, relative } from "node:path";
+import { existsSync, readFileSync, rmSync } from "node:fs";
+import { basename, relative, resolve } from "node:path";
 import { Command, CommanderError } from "commander";
 import { CHIPDATA_ENV, type FindOptions, findChipdata, findStation, type Station } from "./game/chipdata.ts";
 import { adoptChip, chipId, type MapResult, mapChip, unmapChip } from "./project/mapping.ts";
 import { scriptPath, stationFile } from "./project/stations.ts";
+import { addPerChipNames, defineValues, perChipNames } from "./sync/defines.ts";
 import type { GateOptions } from "./sync/gate.ts";
-import { type Duplicate, stationStatus } from "./sync/status.ts";
+import { type Duplicate, type PerChipValue, stationStatus } from "./sync/status.ts";
 import { repl, type Terminal } from "./repl/repl.ts";
 import { type SyncOptions, stationLabel, syncOnce } from "./sync/sync.ts";
+import { gameText } from "./sync/text.ts";
 import { watch } from "./watch/watch.ts";
 
 /** After the list of commands in `ic10-link --help`; each command's `--help` says more. */
@@ -23,6 +25,12 @@ const ABOUT_SYNC = `A script's tests are the test files that name it; they run w
 A chip edited in game is copied to its script, then checked: the result is reported, not enforced.
 If a chip and its script were both changed, the script is sent, and the chip's code is kept in
 .ic10-link/preserved/<station>/conflicts/. once exits 1 if anything failed its checks.`;
+
+/** In `per-chip`'s `--help`. */
+const ABOUT_PER_CHIP = `A per-chip define's value belongs to each chip that runs the script: a chip keeps its own when
+sent the script, and the script keeps its own when sent a chip's edit. A define can also be made
+per-chip in the script itself, with a comment starting link-per-chip on its line:
+  define ROOM_LIGHT HASH("Room Light") # link-per-chip`;
 
 /** In `status`'s `--help`. */
 const ABOUT_STATUS = `A chip relabelled in game has a file for each label, and the IC10Sync mod only uses the one with
@@ -83,6 +91,13 @@ async function resolveDuplicate(duplicate: Duplicate, choose: NonNullable<CliIo[
 	return true;
 }
 
+/** ` (per chip: ROOM_LIGHT=HASH("Hall Light"), MAX_TEMP not in the script)`, or nothing. */
+function describePerChip(values: PerChipValue[] | undefined): string {
+	if (!values) return "";
+	const parts = values.map(({ name, value, inScript }) => (inScript ? `${name}=${value ?? "?"}` : `${name} not in the script`));
+	return ` (per chip: ${parts.join(", ")})`;
+}
+
 /** What `map` and `adopt` say about the chip once it's mapped. */
 function reportMapped(id: string, script: string, result: MapResult, io: CliIo): void {
 	io.out(`Mapped [${id}] ${result.chip?.label ?? "?"} -> ${script}${result.previous ? ` (was ${result.previous})` : ""}`);
@@ -106,7 +121,7 @@ async function status(station: Station, io: CliIo): Promise<number> {
 
 	if (mapped.length > 0) {
 		io.out("\nMapped:");
-		for (const chip of mapped) io.out(`  [${chip.id}] ${chip.label ?? "?"} -> ${chip.script}: ${chip.state}`);
+		for (const chip of mapped) io.out(`  [${chip.id}] ${chip.label ?? "?"} -> ${chip.script}: ${chip.state}${describePerChip(chip.perChip)}`);
 	}
 	const withCode = unmapped.filter((chip) => chip.lines > 0);
 	const empty = unmapped.filter((chip) => chip.lines === 0);
@@ -157,6 +172,8 @@ interface CommandSpec {
 	description: string;
 	/** It takes `--no-tests`. */
 	tests?: boolean;
+	/** False for a command that doesn't use a station, so it doesn't take `--chipdata` and `--station`. */
+	station?: false;
 	/** More about it, after its options in its `--help`. */
 	about?: string;
 	/** Runs it, with its arguments in order; returns the exit code. */
@@ -232,6 +249,26 @@ const COMMANDS: CommandSpec[] = [
 		},
 	},
 	{
+		usage: "per-chip <script> <names...>",
+		description: "makes defines per-chip, listed in <script>.json beside the script: each chip keeps its own value",
+		station: false,
+		about: ABOUT_PER_CHIP,
+		run: async ([script, ...names], _, io) => {
+			const path = scriptPath(io.cwd, io.cwd, script!);
+			const file = resolve(io.cwd, path);
+			if (!existsSync(file)) throw new Error(`${path}: no such script`);
+			const text = gameText(readFileSync(file, "utf8"));
+			const already = perChipNames(file, text);
+			const asked = [...new Set(names)];
+			for (const name of asked.filter((name) => already.includes(name))) io.out(`${name}: already per-chip`);
+			const added = addPerChipNames(file, asked.filter((name) => !already.includes(name)));
+			if (added.length > 0) io.out(`${path}.json: ${added.join(", ")} now per-chip`);
+			const defined = defineValues(text, added);
+			for (const name of added.filter((name) => !defined.has(name))) io.out(`${name} isn't defined in ${path} yet; it's per-chip once it is.`);
+			return 0;
+		},
+	},
+	{
 		usage: "repl",
 		description: "a prompt to run these commands one after another, with watch in the background",
 		run: async (_, options, io) => {
@@ -239,8 +276,15 @@ const COMMANDS: CommandSpec[] = [
 				io.out("repl needs a terminal to read from.");
 				return 2;
 			}
-			const commands = COMMANDS.map((spec) => spec.usage.split(" ")[0]!).filter((name) => name !== "repl");
-			return repl(io, { terminal: io.terminal, run: runCli, commands, defaults: { chipdata: options.chipdata, station: options.station } });
+			const others = COMMANDS.filter((spec) => !spec.usage.startsWith("repl"));
+			const name = (spec: CommandSpec) => spec.usage.split(" ")[0]!;
+			return repl(io, {
+				terminal: io.terminal,
+				run: runCli,
+				commands: others.map(name),
+				withStation: others.filter((spec) => spec.station !== false).map(name),
+				defaults: { chipdata: options.chipdata, station: options.station },
+			});
 		},
 	},
 ];
@@ -257,14 +301,16 @@ function program(io: CliIo, onExit: (code: number) => void): Command {
 		.showHelpAfterError()
 		.exitOverride();
 	for (const spec of COMMANDS) {
-		const command = program
-			.command(spec.usage)
-			.description(spec.description)
-			.option("--chipdata <folder>", `the IC10Sync mod's folder (default: ${CHIPDATA_ENV}, else <Documents>\\My Games\\Stationeers\\chipdata)`)
-			.option("--station <name>", "the station (default: the one played most recently)");
+		const command = program.command(spec.usage).description(spec.description);
+		if (spec.station !== false) {
+			command
+				.option("--chipdata <folder>", `the IC10Sync mod's folder (default: ${CHIPDATA_ENV}, else <Documents>\\My Games\\Stationeers\\chipdata)`)
+				.option("--station <name>", "the station (default: the one played most recently)");
+		}
 		if (spec.tests) command.option("--no-tests", "check lint only, without running tests");
 		if (spec.about) command.addHelpText("after", `\n${spec.about}`);
-		command.action(async () => onExit(await spec.run(command.processedArgs, command.opts<Options>(), io)));
+		// A last argument like `<names...>` comes as a list: its words follow the others.
+		command.action(async () => onExit(await spec.run(command.processedArgs.flat(), command.opts<Options>(), io)));
 	}
 	return program;
 }

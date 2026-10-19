@@ -30,6 +30,17 @@ export {
 } from "./project/stations.ts";
 
 // Comparing and copying between the two.
+export {
+	addPerChipNames,
+	checkPerChipFiles,
+	defineValues,
+	markedDefines,
+	maskDefines,
+	PER_CHIP_MARKER,
+	perChipFile,
+	perChipNames,
+	withDefines,
+} from "./sync/defines.ts";
 export { checkScript, type GateOptions, type GateResult, projectTests, projectVitest, type TestRun } from "./sync/gate.ts";
 export { loadState, saveState, STATE_DIR, type SyncState, stateFile, textHash } from "./sync/state.ts";
 export {
@@ -37,6 +48,7 @@ export {
 	type Duplicate,
 	type MappedChip,
 	type MappedState,
+	type PerChipValue,
 	type StationStatus,
 	stationStatus,
 	type UnmappedChip,

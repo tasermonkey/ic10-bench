@@ -27,7 +27,7 @@ to `io.out`), so the REPL runs each line through `runCli`.
 | --- | --- |
 | `src/game/` | The game's side. `chipdata.ts`: the IC10Sync mod's folder, a subfolder per station, a `<label> [<id>].ic10` file per chip (the mod names the station folder after `XmlSaveLoad.Instance.CurrentStationName`, made safe for a file name). `os.ts`: what depends on the operating system, the Documents folder, read from Windows' registry since OneDrive can move it. |
 | `src/project/` | The project's side. `stations.ts`: `stations/<station>.json`, chip ids to scripts. `mapping.ts`: `map`, `adopt` and `unmap`. |
-| `src/sync/` | Comparing and copying between the two. `text.ts`, `state.ts`, `gate.ts` (the checks before sending), `status.ts` (read only) and `sync.ts` (one pass). |
+| `src/sync/` | Comparing and copying between the two. `text.ts`, `state.ts`, `gate.ts` (the checks before sending), `defines.ts` (per-chip defines: masked when comparing and hashing, swapped in when sending or pulling), `status.ts` (read only) and `sync.ts` (one pass). |
 | `src/watch/` | `watch.ts`: the watchers, which only report changes. `scheduler.ts`: when a pass runs. |
 | `src/repl/` | `repl.ts`: `ic10-link repl`. Every line typed goes through one queue. A command's question (a relabelled chip's files) is `io.choose`'s pick list, with the REPL's readline closed while it's open (two readers of the terminal would each get the keys) and opened again after, with its history; lines printed meanwhile are held until then. Without a terminal, the question is asked at the prompt by number. `watch` is `runCli(["watch", …])` left running, with its own `AbortController` for `stop`; output while the prompt waits is printed above it and the prompt redrawn. `words.ts`: splitting a line, quote-aware. |
 
