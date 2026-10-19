@@ -81,7 +81,7 @@
 	},
 	"dependencies": {
 		"@tasermonkey/ic10": "^1.0.1",
-		"@tasermonkey/ic10-lint": "^1.1.0",
+		"@tasermonkey/ic10-lint": "^1.3.0",
 		"commander": "^15.0.0"
 	},
 	"engines": {

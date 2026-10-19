@@ -1,6 +1,6 @@
 {
 	"name": "@tasermonkey/ic10-link",
-	"version": "0.1.0",
+	"version": "1.3.0",
 	"type": "module",
 	"description": "Links a folder of tested Stationeers IC10 scripts to the chips in your game, through the IC10Sync mod's chipdata folder",
 	"license": "AGPL-3.0-or-later",
@@ -41,7 +41,7 @@
 	},
 	"dependencies": {
 		"@inquirer/prompts": "^8.7.3",
-		"@tasermonkey/ic10-lint": "^1.1.0"
+		"@tasermonkey/ic10-lint": "^1.3.0"
 	},
 	"peerDependencies": {
 		"@tasermonkey/ic10-bench": ">=1.3.0",
