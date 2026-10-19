@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { isPattern, type LintConfig, overrideFor, overrideMatches, projectRelative } from "./config.ts";
-import { lint } from "./lint.ts";
+import { type LintOptions, lint } from "./lint.ts";
+import { perChipFile, readPerChipFile } from "./per-chip.ts";
 import type { BatchOpCatalog, Finding } from "./types.ts";
 
 export interface FileReport {
@@ -27,7 +28,17 @@ export function findScripts(dir: string): string[] {
 	return out.sort();
 }
 
-/** Lint one file with the project's config: its rules, and the file's override if it has one. */
+/** The blocks a script's per-script file declares, or why it can't be read; undefined with no such file. */
+function perChipOptions(file: string, path: string): LintOptions["perChip"] {
+	if (!existsSync(perChipFile(file))) return undefined;
+	try {
+		return { blocks: readPerChipFile(perChipFile(file), perChipFile(path)).blocks };
+	} catch (error) {
+		return { error: (error as Error).message };
+	}
+}
+
+/** Lint one file with the project's config: its rules, the file's override if it has one, and its per-script file's blocks. */
 export async function lintFile(file: string, config: LintConfig, catalog?: BatchOpCatalog): Promise<FileReport> {
 	const path = projectRelative(config.root, file);
 	const override = overrideFor(config, path);
@@ -35,6 +46,7 @@ export async function lintFile(file: string, config: LintConfig, catalog?: Batch
 		catalog,
 		rules: { ...config.rules, ...override?.rules },
 		override,
+		perChip: perChipOptions(resolve(config.root, file), path),
 	});
 	return { path, file: resolve(config.root, file), findings };
 }

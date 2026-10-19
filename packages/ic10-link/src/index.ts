@@ -31,23 +31,29 @@ export {
 
 // Comparing and copying between the two.
 export {
+	addPerChipBlock,
 	addPerChipNames,
+	blockLines,
 	checkPerChipFiles,
 	defineValues,
-	markedDefines,
+	hasPerChip,
 	maskDefines,
-	PER_CHIP_MARKER,
-	perChipFile,
-	perChipNames,
+	maskPerChip,
+	type PerChip,
+	type PerChipValues,
+	perChipOf,
+	perChipValues,
 	withDefines,
-} from "./sync/defines.ts";
-export { checkScript, type GateOptions, type GateResult, projectTests, projectVitest, type TestRun } from "./sync/gate.ts";
+	withPerChip,
+} from "./sync/per-chip.ts";
+export { checkScript, type GateOptions, type GateResult, overLimits, projectTests, projectVitest, type TestRun } from "./sync/gate.ts";
 export { loadState, saveState, STATE_DIR, type SyncState, stateFile, textHash } from "./sync/state.ts";
 export {
 	type ChipFile,
 	type Duplicate,
 	type MappedChip,
 	type MappedState,
+	type PerChipBlockLines,
 	type PerChipValue,
 	type StationStatus,
 	stationStatus,

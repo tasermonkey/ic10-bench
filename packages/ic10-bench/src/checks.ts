@@ -40,7 +40,7 @@ export const CHECK_GROUPS: Record<string, readonly string[]> = {
 	limits: ["max-lines", "max-columns", "max-bytes"],
 	loads: ["validate"],
 	devices: ["batch-ops", "hash-name"],
-	style: ["relative-branch-to-label", "absolute-jump-number", "unused", "register-flow"],
+	style: ["relative-branch-to-label", "absolute-jump-number", "per-chip-block", "per-chip-jump", "unused", "register-flow"],
 };
 
 /** The idle run's length, and what it's for. */

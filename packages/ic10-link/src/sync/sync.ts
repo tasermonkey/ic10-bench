@@ -13,16 +13,19 @@
  * A chip with no record yet gets its script, since mapping it said it should run it; whatever it
  * had is kept in `.ic10-link/preserved/<station>/backups/` first. A chip emptied in game isn't copied to its script.
  *
- * The values of a script's per-chip defines (`defines.ts`) don't count as a change either way: a
- * chip keeps its own when sent the script, and the script keeps its own when sent a chip's edit.
+ * A script's per-chip defines' values and blocks' lines (`per-chip.ts`) don't count as a change
+ * either way: a chip keeps its own when sent the script, and the script keeps its own when sent a
+ * chip's edit. A chip without one of the script's blocks gets the script's (its code kept in
+ * `backups/` first); its edit in game isn't pulled (kept in `conflicts/`). What a chip is sent is
+ * checked against the game's limits too, since its own lines can take it over.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { styleText } from "node:util";
 import { type Chip, listChips, type Station } from "../game/chipdata.ts";
 import { loadStation } from "../project/stations.ts";
-import { defineValues, maskDefines, perChipNames, withDefines } from "./defines.ts";
-import { checkScript, type GateOptions, type GateResult } from "./gate.ts";
+import { checkScript, type GateOptions, type GateResult, overLimits } from "./gate.ts";
+import { hasPerChip, maskPerChip, type PerChip, perChipOf, perChipValues, withPerChip } from "./per-chip.ts";
 import { loadState, saveState, STATE_DIR, textHash } from "./state.ts";
 import { gameText } from "./text.ts";
 
@@ -35,6 +38,8 @@ export type OutcomeKind =
 	| "pulled"
 	/** The chip was emptied in game; its script was left as it is. */
 	| "emptied"
+	/** The chip was edited in game, but without one of its script's per-chip blocks; its script was left as it is. */
+	| "not pulled"
 	/** Chip and script are the same. */
 	| "in sync"
 	/** The chip was relabelled and has several files; `ic10-link status` picks one. */
@@ -144,10 +149,21 @@ export async function syncOnce(options: SyncOptions): Promise<Outcome[]> {
 		const name = `[${id}] ${chip.label}`;
 		const scriptText = gameText(readFileSync(file, "utf8"));
 		const chipText = gameText(readFileSync(chip.path, "utf8"));
-		// Compared, and recorded, but for the values of the script's per-chip defines (defines.ts).
-		const perChip = perChipNames(file, scriptText);
-		const scriptHash = textHash(maskDefines(scriptText, perChip));
-		const chipHash = textHash(maskDefines(chipText, perChip));
+		// Compared, and recorded, but for the script's per-chip values and lines (per-chip.ts).
+		let perChip: PerChip;
+		try {
+			perChip = perChipOf(file, scriptText);
+		} catch (error) {
+			const message = (error as Error).message;
+			say(id, `per-chip:${message}`, [`${name}: skipped: ${message}`]);
+			outcomes.push({ id, script, kind: "blocked" });
+			continue;
+		}
+		const scriptHash = textHash(maskPerChip(scriptText, perChip));
+		const chipHash = textHash(maskPerChip(chipText, perChip));
+		const chipValues = perChipValues(chipText, perChip);
+		// The first of the script's blocks the chip doesn't have (its anchors edited away, or a new chip).
+		const lost = perChip.blocks.find((_, i) => chipValues.blocks[i] === undefined);
 		const base = bases[id];
 
 		if (scriptHash === chipHash) {
@@ -165,8 +181,17 @@ export async function syncOnce(options: SyncOptions): Promise<Outcome[]> {
 				outcomes.push({ id, script, kind: "emptied" });
 				continue;
 			}
-			// With the script's values for its per-chip defines: one chip's aren't every chip's.
-			const pulled = withDefines(chipText, defineValues(scriptText, perChip));
+			if (lost) {
+				// Its own block can't be told from the rest, so pulling would make it every chip's.
+				const kept = preserve(root, "conflicts", station, chip, chipText);
+				say(id, `not pulled:${chipHash}`, [
+					`${where}/${name}: edited in game, but its per-chip block from "${lost.from}" to "${lost.to}" isn't in it any more; not copied to ${script}, its code is kept in ${kept}`,
+				]);
+				outcomes.push({ id, script, kind: "not pulled" });
+				continue;
+			}
+			// With the script's per-chip values and lines: one chip's aren't every chip's.
+			const pulled = withPerChip(chipText, perChip, perChipValues(scriptText, perChip));
 			writeFileSync(file, `${pulled}\n`);
 			bases[id] = chipHash;
 			const gate = await check(file, script, textHash(pulled));
@@ -194,9 +219,23 @@ export async function syncOnce(options: SyncOptions): Promise<Outcome[]> {
 			outcomes.push({ id, script, kind: "blocked", ...(conflict ? { conflict } : {}) });
 			continue;
 		}
-		if (base === undefined && chipText !== "") log(`${name}: its code before is kept in ${preserve(root, "backups", station, chip, chipText)}`);
-		// With the chip's own values for the per-chip defines it has.
-		writeFileSync(chip.path, withDefines(scriptText, defineValues(chipText, perChip)));
+		// With the chip's own per-chip values and lines, where it has them.
+		const sent = withPerChip(scriptText, perChip, chipValues);
+		const over = hasPerChip(perChip) ? await overLimits(root, script, sent) : [];
+		if (over.length > 0) {
+			say(id, `over:${scriptHash}:${chipHash}`, [`${name}: not sent, with its own per-chip lines it's over the game's limits:`, ...over.map((line) => `  ${line}`)]);
+			outcomes.push({ id, script, kind: "blocked", ...(conflict ? { conflict } : {}) });
+			continue;
+		}
+		if (chipText !== "" && (base === undefined || lost)) {
+			const kept = preserve(root, "backups", station, chip, chipText);
+			log(
+				lost
+					? `${name}: its per-chip block from "${lost.from}" to "${lost.to}" isn't in it, so it gets the script's; its code before is kept in ${kept}`
+					: `${name}: its code before is kept in ${kept}`,
+			);
+		}
+		writeFileSync(chip.path, sent);
 		bases[id] = scriptHash;
 		say(id, `deployed:${scriptHash}`, [`${script} -> ${where}/${name} (${gate.report.join("; ")})`]);
 		outcomes.push({ id, script, kind: "deployed", ...(conflict ? { conflict } : {}) });

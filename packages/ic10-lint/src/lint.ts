@@ -1,4 +1,5 @@
 import type { LimitOverride } from "./limits.ts";
+import { type BlockAnchors, perChipBlocks } from "./per-chip.ts";
 import { RULES } from "./rules/index.ts";
 import { parseScript } from "./source.ts";
 import type { BatchOpCatalog, Finding, Severity, SeveritySetting } from "./types.ts";
@@ -10,6 +11,8 @@ export interface LintOptions {
 	rules?: Record<string, SeveritySetting>;
 	/** This script's allowance over the game's limits (from the config's `overrides`). */
 	override?: LimitOverride;
+	/** The blocks its per-script file declares (`per-chip.ts`), or why that file couldn't be read. */
+	perChip?: { blocks?: BlockAnchors[]; error?: string };
 }
 
 const RANK: Record<Severity, number> = { info: 0, warning: 1, error: 2 };
@@ -39,6 +42,8 @@ function severityOf(own: Severity, ruleDefault: Severity, configured: Severity |
 /** Check one script's source. Findings are sorted by line, then column. */
 export async function lint(source: string, options: LintOptions = {}): Promise<Finding[]> {
 	const script = parseScript(source.replace(/\r\n/g, "\n"));
+	const perChip = perChipBlocks(script, options.perChip?.blocks);
+	if (options.perChip?.error) perChip.problems.unshift({ line: 0, message: options.perChip.error });
 	const findings: Finding[] = [];
 	for (const rule of RULES) {
 		const setting = options.rules?.[rule.id];
@@ -59,6 +64,7 @@ export async function lint(source: string, options: LintOptions = {}): Promise<F
 			script,
 			catalog: options.catalog,
 			override: options.override,
+			perChip,
 			report({ line, column = 0, message, severity }) {
 				findings.push({
 					rule: rule.id,

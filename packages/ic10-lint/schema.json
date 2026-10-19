@@ -59,6 +59,8 @@
 				"hash-name": { "$ref": "#/definitions/severity", "description": "HASH() of a number, or of a prefab the game doesn't have. Default error." },
 				"relative-branch-to-label": { "$ref": "#/definitions/severity", "description": "A br* branch or jr given a label, which it takes as an offset. Default warn." },
 				"absolute-jump-number": { "$ref": "#/definitions/severity", "description": "A jump to a line number rather than a label. Default warn." },
+				"per-chip-block": { "$ref": "#/definitions/severity", "description": "A per-chip block (# link-per-chip { … }) ic10-link can't find: a marker without its pair, nested, or a bad <script>.json. Default error." },
+				"per-chip-jump": { "$ref": "#/definitions/severity", "description": "A jump to a line number past a per-chip block, or a relative branch by a number across one. Default warn." },
 				"unused": { "$ref": "#/definitions/severity", "description": "An alias, define or label nothing uses. Default warn." },
 				"register-flow": { "$ref": "#/definitions/severity", "description": "A register read before it's written, or written and never read. Default off." },
 				"idle": { "$ref": "#/definitions/severity", "description": "IC10 Bench only: run for 50 ticks against stand-in devices (every pin, every reference ID it writes, a housing with every logic type), the script doesn't halt or run out of lines. Default error." }

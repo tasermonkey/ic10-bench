@@ -7,7 +7,7 @@ import { execFile } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
-import { lintFile, loadConfig, projectCatalog } from "@tasermonkey/ic10-lint";
+import { lint, lintFile, loadConfig, overrideFor, projectCatalog, RULES } from "@tasermonkey/ic10-lint";
 
 export interface TestRun {
 	ok: boolean;
@@ -59,16 +59,32 @@ export function projectVitest(root: string, files: string[]): Promise<TestRun> {
 	});
 }
 
+/** Lint's checks of the game's limits. */
+const LIMIT_RULES = ["max-lines", "max-columns", "max-bytes"];
+
+/**
+ * The game's limits on the text a chip is sent, as lint checks them, with the project's severities
+ * and the script's override (`script` is its path in the project): what's over, a line each. The
+ * script passed them, but a chip's own per-chip values and lines can take it over.
+ */
+export async function overLimits(root: string, script: string, text: string): Promise<string[]> {
+	const config = loadConfig(root);
+	const override = overrideFor(config, script);
+	const others = RULES.filter((rule) => !LIMIT_RULES.includes(rule.id)).map((rule) => [rule.id, "off"] as const);
+	const findings = await lint(text, { rules: { ...config.rules, ...override?.rules, ...Object.fromEntries(others) }, override });
+	return findings.filter((finding) => finding.severity === "error").map((f) => `line ${f.line + 1}: ${f.rule} ${f.message}`);
+}
+
 /** Checks `script` (absolute) before it goes to the game. */
 export async function checkScript(script: string, options: GateOptions): Promise<GateResult> {
 	const { root } = options;
 	const config = loadConfig(root);
-	const lint = await lintFile(script, config, projectCatalog(root));
-	const errors = lint.findings.filter((finding) => finding.severity === "error");
+	const linted = await lintFile(script, config, projectCatalog(root));
+	const errors = linted.findings.filter((finding) => finding.severity === "error");
 	if (errors.length > 0) {
 		return {
 			ok: false,
-			report: errors.map((f) => `${lint.path}:${f.line + 1}:${(f.column ?? 0) + 1} error ${f.rule} ${f.message}`),
+			report: errors.map((f) => `${linted.path}:${f.line + 1}:${(f.column ?? 0) + 1} error ${f.rule} ${f.message}`),
 		};
 	}
 	if (options.tests === false) return { ok: true, report: ["lint ok; tests not run (--no-tests)"] };

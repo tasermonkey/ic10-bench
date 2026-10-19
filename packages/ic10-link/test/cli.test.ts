@@ -58,6 +58,18 @@ describe("ic10-link status", () => {
 		expect(output).toContain('[451] Lights -> ic10/lights.ic10: same (per chip: ROOM=HASH("Hall Light"), MAX not in the script)\n');
 	});
 
+	it("shows how many lines each of a chip's per-chip blocks has, or that it isn't there", async () => {
+		const { chipdata, project } = setup();
+		const list = (...items: string[]) => ["push 0 # link-per-chip {", ...items, "poke 0 sp # link-per-chip }", "yield"].join("\n");
+		writeFileSync(join(chipdata.root, "Base", "Lights [451].ic10"), list("push 1", "push 2", "push 3"));
+		writeFileSync(join(chipdata.root, "Base", "Script1 [450].ic10"), "yield");
+		writeFileSync(join(project.root, "ic10", "lights.ic10"), list("push 9"));
+		writeFileSync(join(project.root, "stations", "Base.json"), JSON.stringify({ chips: { "451": "ic10/lights.ic10", "450": "ic10/lights.ic10" } }));
+		const { output } = await run(project, "status", "--chipdata", chipdata.root);
+		expect(output).toContain('[451] Lights -> ic10/lights.ic10: same (per chip: block after "push 0": 3 lines)\n');
+		expect(output).toContain('[450] Script1 -> ic10/lights.ic10: differs (per chip: block after "push 0": not found)\n');
+	});
+
 	it("says when the station has no map yet", async () => {
 		const { chipdata } = setup();
 		const empty = makeFolder({});
@@ -208,9 +220,24 @@ describe("ic10-link per-chip", () => {
 		expect(missing.code).toBe(2);
 		expect(missing.output).toBe("ic10/gone.ic10: no such script\n");
 		expect((await run(project, "per-chip", "ic10/lights.ic10", "two words")).output).toBe("two words: not a define name\n");
-		expect((await run(project, "per-chip", "ic10/lights.ic10")).output).toContain("missing required argument 'names'");
+		expect((await run(project, "per-chip", "ic10/lights.ic10")).output).toBe("name the defines, or a block with --from and --to\n");
 		expect((await run(project, "per-chip", "--help")).output).not.toContain("--chipdata");
 		expect(existsSync(join(project.root, "ic10", "lights.ic10.json"))).toBe(false);
+	});
+
+	it("adds a block by --from and --to, once, if the script has it", async () => {
+		const { project } = setup();
+		writeFileSync(join(project.root, "ic10", "lights.ic10"), "push 0\npush 1\npoke 0 sp # the top\nyield");
+		const add = await run(project, "per-chip", "ic10/lights.ic10", "--from", "push 0", "--to", "poke 0  sp");
+		expect(add).toEqual({ code: 0, output: 'ic10/lights.ic10.json: the lines between "push 0" and "poke 0 sp" now per-chip\n' });
+		expect(JSON.parse(perChipJson(project))).toEqual({ perChip: { byBlock: [{ from: "push 0", to: "poke 0 sp" }] } });
+		expect((await run(project, "per-chip", "ic10/lights.ic10", "--from", "push 0", "--to", "poke 0 sp")).output).toBe(
+			'the lines between "push 0" and "poke 0 sp": already per-chip\n',
+		);
+		expect((await run(project, "per-chip", "ic10/lights.ic10", "--from", "push 1", "--to", "push 0")).output).toBe(
+			'ic10/lights.ic10: no line "push 1" with a line "push 0" after it\n',
+		);
+		expect((await run(project, "per-chip", "ic10/lights.ic10", "--from", "push 0")).output).toBe("--from and --to go together: a block's first line and its last\n");
 	});
 });
 

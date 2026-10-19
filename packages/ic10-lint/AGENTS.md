@@ -8,7 +8,10 @@ The package depends on `@tasermonkey/ic10` (the emulator fork, for `validate`, t
 and the game's prefab names) and Node built-ins only. It must not import IC10 Bench: IC10 Bench
 depends on it, and passes it its catalogue as data. Where IC10 Bench writes a project's catalogue
 is the one fact about it lint holds, as `PROJECT_CATALOG` (`projectCatalog(root)` reads it); IC10
-Bench and ic10-link use that rather than spelling the path.
+Bench and ic10-link use that rather than spelling the path. Likewise ic10-link's per-chip
+declarations (`src/per-chip.ts`: the `link-per-chip` markers and `<script>.json`) live here, so the
+`per-chip-*` rules see them; `lintFile` reads the script's `.json`. What's done with them when
+sending and pulling is ic10-link's.
 
 Like IC10 Bench, it runs from its TypeScript sources in a checkout (the `"source"` export
 condition), and from `dist/` once published (`npm run build`, `tsconfig.build.json`, with

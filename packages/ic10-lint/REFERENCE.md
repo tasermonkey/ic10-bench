@@ -18,6 +18,8 @@ every script or for one.
 | `hash-name` | error / warning | `HASH("5")`, which hashes the text "5", not the number, is an error. `HASH("StructureActivVent")`, a name shaped like a prefab that the game doesn't have, is a warning. |
 | `relative-branch-to-label` | warning | `brgt r0 r1 loop`: the `br*` branches and `jr` take an offset, so this jumps by the label's line number, not to it. |
 | `absolute-jump-number` | warning | `j 12` or `beqz r0 12`: the line moves when you add a line above it. Use a label. (`j 0` is fine.) |
+| `per-chip-block` | error | A [per-chip block](#per-chip-blocks) ic10-link can't find: a `link-per-chip {` without its `}` (or the other way), one inside another, a marker on a line with no code, or a `<script>.json` that's bad or names a block the script doesn't have. |
+| `per-chip-jump` | warning | In a script with a [per-chip block](#per-chip-blocks): `j 12` past the block's start, or `brgtz r0 5` over it. Each chip has its own number of lines in the block, so the line is a different one on each. Use a label. |
 | `unused` | warning | An alias, define or label nothing uses. |
 | `register-flow` | off | A register read before anything writes it, or written and never read. Off by default: registers start at 0 (and keep their values across a restart), so a script can rely on that. |
 
@@ -69,3 +71,27 @@ matches no script is an error, like an override for a script that's gone.
 
 The config is a file and not comments in the scripts, because a comment costs a script lines and
 characters. IC10 Bench reads the same file (its `idle` check takes a severity here too).
+
+## Per-chip blocks
+
+[ic10-link](../ic10-link/REFERENCE.md#per-chip-blocks) sends a script to every chip that runs it,
+but some lines are each chip's: a list of names a script pushes to its stack, say, which is a
+different length on each chip. A block marks them, between two lines of code whose comments start
+`link-per-chip {` and `link-per-chip }`:
+
+```
+push 0 # link-per-chip {
+push HASH("StructureLightLong")
+push HASH("StructureWallLight")
+poke 0 sp # link-per-chip } the list's top
+```
+
+Or, for a script that shouldn't carry the markers, in `<script>.json` beside it (`Room
+Lights.ic10.json`), by the two lines' code:
+
+```json
+{ "perChip": { "byBlock": [{ "from": "push 0", "to": "poke 0 sp" }] } }
+```
+
+Lint reads both: `per-chip-block` checks that ic10-link can find each block, and `per-chip-jump`
+warns about jumping to a line number past one.

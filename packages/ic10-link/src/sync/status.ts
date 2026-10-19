@@ -3,11 +3,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { type Chip, listChips, type Station } from "../game/chipdata.ts";
 import { loadStation } from "../project/stations.ts";
-import { defineValues, maskDefines, perChipNames } from "./defines.ts";
+import type { BlockAnchors } from "@tasermonkey/ic10-lint";
+import { defineValues, hasPerChip, maskPerChip, perChipOf, perChipValues } from "./per-chip.ts";
 import { gameText } from "./text.ts";
 
 export type MappedState =
-	/** The chip runs the script as it is (but for the values of its per-chip defines). */
+	/** The chip runs the script as it is (but for its per-chip defines' values and blocks' lines). */
 	| "same"
 	/** The chip and the script differ. */
 	| "differs"
@@ -18,13 +19,19 @@ export type MappedState =
 	/** The chip has more than one file (it was relabelled), so which is current isn't known: see `duplicates`. */
 	| "several files";
 
-/** One of a script's per-chip defines (`defines.ts`), as a chip has it. */
+/** One of a script's per-chip defines (`per-chip.ts`), as a chip has it. */
 export interface PerChipValue {
 	name: string;
 	/** The chip's value; undefined when the chip has no such define. */
 	value?: string;
 	/** False for a name in the per-script file that the script doesn't define (a typo, or one since removed). */
 	inScript: boolean;
+}
+
+/** One of a script's per-chip blocks (`per-chip.ts`), as a chip has it. */
+export interface PerChipBlockLines extends BlockAnchors {
+	/** How many lines the chip has between the anchors; undefined when they aren't in the chip. */
+	lines?: number;
 }
 
 export interface MappedChip {
@@ -35,6 +42,8 @@ export interface MappedChip {
 	state: MappedState;
 	/** The script's per-chip defines, as this chip has them, when it's `same` or `differs` and the script has any. */
 	perChip?: PerChipValue[];
+	/** The script's per-chip blocks, as this chip has them, likewise. */
+	perChipBlocks?: PerChipBlockLines[];
 }
 
 export interface UnmappedChip {
@@ -82,18 +91,22 @@ function lineCount(text: string): number {
  * How a mapped chip, with its files in the station (none, one, or several), compares with its
  * script (absolute): but for the values of the script's per-chip defines, which it lists.
  */
-function compare(script: string, files: Chip[]): Pick<MappedChip, "state" | "perChip"> {
+function compare(script: string, files: Chip[]): Pick<MappedChip, "state" | "perChip" | "perChipBlocks"> {
 	if (!existsSync(script)) return { state: "no script" };
 	if (files.length === 0) return { state: "not in game" };
 	if (files.length > 1) return { state: "several files" };
 	const scriptText = gameText(readFileSync(script, "utf8"));
 	const text = chipText(files[0]!);
-	const names = perChipNames(script, scriptText);
-	const state = maskDefines(text, names) === maskDefines(scriptText, names) ? "same" : "differs";
-	if (names.length === 0) return { state };
-	const values = defineValues(text, names);
-	const inScript = defineValues(scriptText, names);
-	return { state, perChip: names.map((name) => ({ name, value: values.get(name), inScript: inScript.has(name) })) };
+	const perChip = perChipOf(script, scriptText);
+	const state = maskPerChip(text, perChip) === maskPerChip(scriptText, perChip) ? "same" : "differs";
+	if (!hasPerChip(perChip)) return { state };
+	const values = perChipValues(text, perChip);
+	const inScript = defineValues(scriptText, perChip.names);
+	return {
+		state,
+		...(perChip.names.length > 0 ? { perChip: perChip.names.map((name) => ({ name, value: values.defines.get(name), inScript: inScript.has(name) })) } : {}),
+		...(perChip.blocks.length > 0 ? { perChipBlocks: perChip.blocks.map((block, i) => ({ ...block, lines: values.blocks[i]?.length })) } : {}),
+	};
 }
 
 /** The station's chips against the project at `root`, and its `stations/<station>.json`. */

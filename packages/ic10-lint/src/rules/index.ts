@@ -1,10 +1,11 @@
 import type { Rule } from "../types.ts";
 import { batchOps } from "./batch-ops.ts";
 import { hashName } from "./hash-name.ts";
-import { absoluteJumpNumber, relativeBranchToLabel } from "./jumps.ts";
+import { absoluteJumpNumber, perChipJump, relativeBranchToLabel } from "./jumps.ts";
 import { maxBytes } from "./max-bytes.ts";
 import { maxColumns } from "./max-columns.ts";
 import { maxLines } from "./max-lines.ts";
+import { perChipBlock } from "./per-chip-block.ts";
 import { registerFlow } from "./register-flow.ts";
 import { unused } from "./unused.ts";
 import { validate } from "./validate.ts";
@@ -19,6 +20,8 @@ export const RULES: readonly Rule[] = [
 	hashName,
 	relativeBranchToLabel,
 	absoluteJumpNumber,
+	perChipBlock,
+	perChipJump,
 	unused,
 	registerFlow,
 ];

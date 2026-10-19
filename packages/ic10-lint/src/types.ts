@@ -1,4 +1,5 @@
 import type { LimitOverride } from "./game-limits.ts";
+import type { PerChipBlock, PerChipProblem } from "./per-chip.ts";
 import type { Script } from "./source.ts";
 
 export type Severity = "error" | "warning" | "info";
@@ -39,6 +40,8 @@ export interface RuleContext {
 	catalog?: BatchOpCatalog;
 	/** The project's override for this script's limits, if it has one. */
 	override?: LimitOverride;
+	/** The script's per-chip blocks (`per-chip.ts`), from its markers and its per-script file, and what's wrong with them. */
+	perChip: { blocks: PerChipBlock[]; problems: PerChipProblem[] };
 	/** A finding at the rule's default severity, unless `severity` is given. */
 	report(finding: { line: number; column?: number; message: string; severity?: Severity }): void;
 }

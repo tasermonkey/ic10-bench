@@ -1,7 +1,22 @@
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { markedDefines } from "@tasermonkey/ic10-lint";
 import { afterEach, describe, expect, it } from "vitest";
-import { checkPerChipFiles, defineValues, markedDefines, maskDefines, perChipNames, withDefines } from "../../src/sync/defines.ts";
+import {
+	addPerChipBlock,
+	blockLines,
+	checkPerChipFiles,
+	defineValues,
+	maskDefines,
+	maskPerChip,
+	perChipOf,
+	perChipValues,
+	withDefines,
+	withPerChip,
+} from "../../src/sync/per-chip.ts";
 import { type Folder, makeFolder } from "../project.ts";
+
+const perChipNames = (script: string, text: string) => perChipOf(script, text).names;
 
 const folders: Folder[] = [];
 afterEach(() => {
@@ -81,6 +96,70 @@ describe("perChipNames", () => {
 		expect(names("list.ic10")).toThrow(/list\.ic10\.json: "perChip\.byDefineName" must be a list of define names/);
 		expect(names("name.ic10")).toThrow(/name\.ic10\.json: "perChip\.byDefineName" must be a list of define names/);
 		expect(names("json.ic10")).toThrow(/json\.ic10\.json: not valid JSON/);
+	});
+});
+
+const LIST = [
+	'define ROOM HASH("Room Light") # link-per-chip',
+	"push 0 # link-per-chip {",
+	'push HASH("StructureWallLight")',
+	"poke 0 sp # link-per-chip }",
+	"start:",
+	"j start",
+].join("\n");
+/** A chip running LIST with its own room and list, three long, and without the markers. */
+const CHIP = ['define ROOM HASH("Hall Light") # link-per-chip', "push 0", "push 1", "push 2", "push 3", "poke 0 sp", "start:", "j start"].join("\n");
+
+describe("per-chip blocks", () => {
+	const perChip = { names: ["ROOM"], blocks: [{ from: "push 0", to: "poke 0 sp" }] };
+
+	it("takes the script's marked blocks and its per-script file's", () => {
+		const project = makeFolder({ "list.ic10.json": { perChip: { byBlock: [{ from: "start:", to: "j start" }] } } });
+		folders.push(project);
+		expect(perChipOf(join(project.root, "list.ic10"), LIST).blocks).toEqual([
+			{ from: "push 0", to: "poke 0 sp" },
+			{ from: "start:", to: "j start" },
+		]);
+	});
+
+	it("reads each block's lines, found by its markers or its anchors' code", () => {
+		expect(blockLines(LIST, perChip.blocks)).toEqual([['push HASH("StructureWallLight")']]);
+		expect(blockLines(CHIP, perChip.blocks)).toEqual([["push 1", "push 2", "push 3"]]);
+		expect(blockLines("move r0 1", perChip.blocks)).toEqual([undefined]);
+	});
+
+	it("masks a block's lines as one, however many, and its anchors' markers, so the two compare the same", () => {
+		expect(maskPerChip(CHIP, perChip)).toBe(["define ROOM * # link-per-chip", "push 0", "*", "poke 0 sp", "start:", "j start"].join("\n"));
+		expect(maskPerChip(LIST, perChip)).toBe(maskPerChip(CHIP, perChip));
+	});
+
+	it("sends the script with the chip's lines and value, keeping the script's anchors and their markers", () => {
+		expect(withPerChip(LIST, perChip, perChipValues(CHIP, perChip)).split("\n")).toEqual([
+			'define ROOM HASH("Hall Light") # link-per-chip',
+			"push 0 # link-per-chip {",
+			"push 1",
+			"push 2",
+			"push 3",
+			"poke 0 sp # link-per-chip }",
+			"start:",
+			"j start",
+		]);
+	});
+
+	it("leaves a block the other text doesn't have as it is", () => {
+		expect(withPerChip(LIST, perChip, perChipValues("", perChip))).toBe(LIST);
+	});
+
+	it("adds a block to the per-script file once, by its code, keeping the rest", () => {
+		const project = makeFolder({ "list.ic10.json": { perChip: { byDefineName: ["ROOM"] }, other: 1 } });
+		folders.push(project);
+		const script = join(project.root, "list.ic10");
+		expect(addPerChipBlock(script, { from: "push  0", to: "poke 0 sp # top" })).toBe(true);
+		expect(addPerChipBlock(script, { from: "push 0", to: "poke 0 sp" })).toBe(false);
+		expect(JSON.parse(readFileSync(`${script}.json`, "utf8"))).toEqual({
+			perChip: { byDefineName: ["ROOM"], byBlock: [{ from: "push 0", to: "poke 0 sp" }] },
+			other: 1,
+		});
 	});
 });
 

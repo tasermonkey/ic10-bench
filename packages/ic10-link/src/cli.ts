@@ -1,12 +1,12 @@
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { basename, relative, resolve } from "node:path";
-import { runProgram } from "@tasermonkey/ic10-lint";
+import { anchorCode, locateBlocks, runProgram } from "@tasermonkey/ic10-lint";
 import { CHIPDATA_ENV, findChipdata, findStation, type Station } from "./game/chipdata.ts";
 import { adoptChip, chipId, type MapResult, mapChip, unmapChip } from "./project/mapping.ts";
 import { scriptPath, stationFile } from "./project/stations.ts";
-import { addPerChipNames, defineValues, perChipNames } from "./sync/defines.ts";
 import type { CliIo } from "./io.ts";
-import { type Duplicate, type PerChipValue, stationStatus } from "./sync/status.ts";
+import { addPerChipBlock, addPerChipNames, defineValues, perChipOf } from "./sync/per-chip.ts";
+import { type Duplicate, type MappedChip, stationStatus } from "./sync/status.ts";
 import { repl } from "./repl/repl.ts";
 import { type SyncOptions, stationLabel, syncOnce } from "./sync/sync.ts";
 import { gameText } from "./sync/text.ts";
@@ -27,10 +27,18 @@ If a chip and its script were both changed, the script is sent, and the chip's c
 .ic10-link/preserved/<station>/conflicts/. once exits 1 if anything failed its checks.`;
 
 /** In `per-chip`'s `--help`. */
-const ABOUT_PER_CHIP = `A per-chip define's value belongs to each chip that runs the script: a chip keeps its own when
-sent the script, and the script keeps its own when sent a chip's edit. A define can also be made
-per-chip in the script itself, with a comment starting link-per-chip on its line:
-  define ROOM_LIGHT HASH("Room Light") # link-per-chip`;
+const ABOUT_PER_CHIP = `A per-chip define's value, or a per-chip block's lines, belong to each chip that runs the script:
+a chip keeps its own when sent the script, and the script keeps its own when sent a chip's edit.
+A block is the lines between two lines of code, --from and --to, as many as each chip has, like a
+list pushed to the stack. Either can also be made per-chip in the script itself, with a comment
+starting link-per-chip:
+  define ROOM_LIGHT HASH("Room Light") # link-per-chip
+  push 0 # link-per-chip {
+  push HASH("StructureWallLight")
+  poke 0 sp # link-per-chip }
+Examples:
+  ic10-link per-chip "ic10/EControl/Room Lights.ic10" ROOM_LIGHT
+  ic10-link per-chip "ic10/EControl/Room Lights.ic10" --from "push 0" --to "poke 0 sp"`;
 
 /** In `status`'s `--help`. */
 const ABOUT_STATUS = `A chip relabelled in game has a file for each label, and the IC10Sync mod only uses the one with
@@ -74,11 +82,13 @@ async function resolveDuplicate(duplicate: Duplicate, choose: NonNullable<CliIo[
 	return true;
 }
 
-/** ` (per chip: ROOM_LIGHT=HASH("Hall Light"), MAX_TEMP not in the script)`, or nothing. */
-function describePerChip(values: PerChipValue[] | undefined): string {
-	if (!values) return "";
-	const parts = values.map(({ name, value, inScript }) => (inScript ? `${name}=${value ?? "?"}` : `${name} not in the script`));
-	return ` (per chip: ${parts.join(", ")})`;
+/** ` (per chip: ROOM_LIGHT=HASH("Hall Light"), MAX_TEMP not in the script, block after "push 0": 9 lines)`, or nothing. */
+function describePerChip({ perChip = [], perChipBlocks = [] }: MappedChip): string {
+	const parts = [
+		...perChip.map(({ name, value, inScript }) => (inScript ? `${name}=${value ?? "?"}` : `${name} not in the script`)),
+		...perChipBlocks.map(({ from, lines: count }) => `block after "${from}": ${count === undefined ? "not found" : lines(count)}`),
+	];
+	return parts.length > 0 ? ` (per chip: ${parts.join(", ")})` : "";
 }
 
 /** What `map` and `adopt` say about the chip once it's mapped. */
@@ -104,7 +114,7 @@ async function status(station: Station, io: CliIo): Promise<number> {
 
 	if (mapped.length > 0) {
 		io.out("\nMapped:");
-		for (const chip of mapped) io.out(`  [${chip.id}] ${chip.label ?? "?"} -> ${chip.script}: ${chip.state}${describePerChip(chip.perChip)}`);
+		for (const chip of mapped) io.out(`  [${chip.id}] ${chip.label ?? "?"} -> ${chip.script}: ${chip.state}${describePerChip(chip)}`);
 	}
 	const withCode = unmapped.filter((chip) => chip.lines > 0);
 	const empty = unmapped.filter((chip) => chip.lines === 0);
@@ -134,6 +144,9 @@ interface Options {
 	station?: string;
 	/** once, watch: false for `--no-tests`. */
 	tests?: boolean;
+	/** per-chip: `--from <code>` and `--to <code>`, a block's anchors. */
+	from?: string;
+	to?: string;
 }
 
 /** The station `--chipdata` and `--station` pick. */
@@ -157,6 +170,8 @@ interface CommandSpec {
 	tests?: boolean;
 	/** False for a command that doesn't use a station, so it doesn't take `--chipdata` and `--station`. */
 	station?: false;
+	/** Its own options: flags, and what each is for. */
+	options?: [string, string][];
 	/** More about it, after its options in its `--help`. */
 	about?: string;
 	/** Runs it, with its arguments in order; returns the exit code. */
@@ -216,7 +231,7 @@ const COMMANDS: CommandSpec[] = [
 			const sync = syncOptions(options, io);
 			const outcomes = await syncOnce(sync);
 			if (outcomes.length === 0) io.out(`No chips mapped in ${sync.station.name} yet: see ic10-link map and adopt.`);
-			return outcomes.some((outcome) => outcome.kind === "blocked" || outcome.failed) ? 1 : 0;
+			return outcomes.some((outcome) => outcome.kind === "blocked" || outcome.kind === "not pulled" || outcome.failed) ? 1 : 0;
 		},
 	},
 	{
@@ -232,16 +247,29 @@ const COMMANDS: CommandSpec[] = [
 		},
 	},
 	{
-		usage: "per-chip <script> <names...>",
-		description: "makes defines per-chip, listed in <script>.json beside the script: each chip keeps its own value",
+		usage: "per-chip <script> [names...]",
+		description: "makes defines, or a block of lines, per-chip, listed in <script>.json beside the script: each chip keeps its own",
 		station: false,
+		options: [
+			["--from <code>", "a block's first line: the lines after it, up to --to's, are each chip's"],
+			["--to <code>", "the block's last line"],
+		],
 		about: ABOUT_PER_CHIP,
-		run: async ([script, ...names], _, io) => {
+		run: async ([script, ...names], options, io) => {
 			const path = scriptPath(io.cwd, io.cwd, script!);
 			const file = resolve(io.cwd, path);
 			if (!existsSync(file)) throw new Error(`${path}: no such script`);
+			if ((options.from === undefined) !== (options.to === undefined)) throw new Error("--from and --to go together: a block's first line and its last");
+			if (names.length === 0 && options.from === undefined) throw new Error("name the defines, or a block with --from and --to");
 			const text = gameText(readFileSync(file, "utf8"));
-			const already = perChipNames(file, text);
+			if (options.from !== undefined && options.to !== undefined) {
+				const anchors = { from: options.from, to: options.to };
+				if (!locateBlocks(text, [anchors])[0]) throw new Error(`${path}: no line "${options.from}" with a line "${options.to}" after it`);
+				const what = `the lines between "${anchorCode(anchors.from)}" and "${anchorCode(anchors.to)}"`;
+				io.out(addPerChipBlock(file, anchors) ? `${path}.json: ${what} now per-chip` : `${what}: already per-chip`);
+			}
+			if (names.length === 0) return 0;
+			const already = perChipOf(file, text).names;
 			const asked = [...new Set(names)];
 			for (const name of asked.filter((name) => already.includes(name))) io.out(`${name}: already per-chip`);
 			const added = addPerChipNames(file, asked.filter((name) => !already.includes(name)));
@@ -284,6 +312,7 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
 					.option("--station <name>", "the station (default: the one played most recently)");
 			}
 			if (spec.tests) command.option("--no-tests", "check lint only, without running tests");
+			for (const [flags, description] of spec.options ?? []) command.option(flags, description);
 			if (spec.about) command.addHelpText("after", `\n${spec.about}`);
 			// A last argument like `<names...>` comes as a list: its words follow the others.
 			command.action(async () => exit(await spec.run(command.processedArgs.flat(), command.opts<Options>(), io)));

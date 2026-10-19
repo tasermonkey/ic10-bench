@@ -268,8 +268,78 @@ describe("syncOnce, with per-chip defines", () => {
 		expect(s.chip("Lights [1].ic10")).toBe(room("2", "sleep 1", ""));
 	});
 
-	it("stops, naming the file, for a bad .json", async () => {
+	it("skips the chip, naming the file, for a bad .json", async () => {
 		const s = setup({ "Lights [1].ic10": "yield" }, { "ic10/room.ic10": "yield", "ic10/room.ic10.json": { perChip: [] } }, { "1": "ic10/room.ic10" });
-		await expect(syncOnce(s.options)).rejects.toThrow(/room\.ic10\.json: "perChip" must be an object/);
+		expect((await syncOnce(s.options)).map((o) => o.kind)).toEqual(["blocked"]);
+		expect(s.log).toEqual([expect.stringMatching(/^\[1\] Lights: skipped: .*room\.ic10\.json: "perChip" must be an object$/)]);
+		expect(s.chip("Lights [1].ic10")).toBe("yield");
+	});
+});
+
+describe("syncOnce, with per-chip blocks", () => {
+	/** A script with a list pushed to the stack, each chip's own (marked, unless `marked` is false), and `body` after it. */
+	const list = (items: string[], body = "yield", marked = true) =>
+		[`push 0${marked ? " # link-per-chip {" : ""}`, ...items, `poke 0 sp${marked ? " # link-per-chip }" : ""}`, "start:", body, "j start"].join("\n");
+
+	it("counts a chip whose list differs, in length too, as in sync, and writes nothing", async () => {
+		const s = setup({ "Lights [1].ic10": list(["push 1", "push 2", "push 3"]) }, { "ic10/room.ic10": list(["push 9"]) }, { "1": "ic10/room.ic10" });
+		expect((await syncOnce(s.options)).map((o) => o.kind)).toEqual(["in sync"]);
+		expect(s.chip("Lights [1].ic10")).toBe(list(["push 1", "push 2", "push 3"]));
+	});
+
+	it("counts a chip that has the list but not the markers as in sync, so marking a script sends nothing", async () => {
+		const s = setup({ "Lights [1].ic10": list(["push 1", "push 2"], "yield", false) }, { "ic10/room.ic10": list(["push 9"]) }, { "1": "ic10/room.ic10" });
+		expect((await syncOnce(s.options)).map((o) => o.kind)).toEqual(["in sync"]);
+	});
+
+	it("sends a changed script with the chip's own list, and the script's markers", async () => {
+		const s = setup({ "Lights [1].ic10": list(["push 1", "push 2"], "yield", false) }, { "ic10/room.ic10": list(["push 9"]) }, { "1": "ic10/room.ic10" });
+		await syncOnce(s.options);
+		s.setScript("ic10/room.ic10", list(["push 9"], "sleep 1"));
+		expect((await syncOnce(s.options)).map((o) => o.kind)).toEqual(["deployed"]);
+		expect(s.chip("Lights [1].ic10")).toBe(list(["push 1", "push 2"], "sleep 1"));
+	});
+
+	it("copies a chip edited in game to its script with the script's own list", async () => {
+		const s = setup({ "Lights [1].ic10": list(["push 1", "push 2"]) }, { "ic10/room.ic10": list(["push 9"]) }, { "1": "ic10/room.ic10" });
+		await syncOnce(s.options);
+		s.setChip("Lights [1].ic10", list(["push 1", "push 2"], "sleep 1"));
+		expect((await syncOnce(s.options)).map((o) => o.kind)).toEqual(["pulled"]);
+		expect(s.script("ic10/room.ic10")).toBe(`${list(["push 9"], "sleep 1")}\n`);
+	});
+
+	it("sends the script's list to an empty chip, and to one without the list, keeping its code first", async () => {
+		const s = setup(
+			{ "Lights [1].ic10": "", "Other [2].ic10": "yield" },
+			{ "ic10/room.ic10": list(["push 9"]) },
+			{ "1": "ic10/room.ic10", "2": "ic10/room.ic10" },
+		);
+		expect((await syncOnce(s.options)).map((o) => o.kind)).toEqual(["deployed", "deployed"]);
+		expect(s.chip("Lights [1].ic10")).toBe(list(["push 9"]));
+		expect(s.chip("Other [2].ic10")).toBe(list(["push 9"]));
+		expect(s.log).toContain(
+			'[2] Other: its per-chip block from "push 0" to "poke 0 sp" isn\'t in it, so it gets the script\'s; its code before is kept in .ic10-link/preserved/Base/backups/Other [2].ic10',
+		);
+	});
+
+	it("doesn't send a chip whose own list takes it over the game's line limit", async () => {
+		const long = Array.from({ length: 130 }, (_, i) => `push ${i}`);
+		const s = setup({ "Lights [1].ic10": list(long) }, { "ic10/room.ic10": list(["push 9"]) }, { "1": "ic10/room.ic10" });
+		await syncOnce(s.options);
+		s.setScript("ic10/room.ic10", list(["push 9"], "sleep 1"));
+		expect((await syncOnce(s.options)).map((o) => o.kind)).toEqual(["blocked"]);
+		expect(s.log.slice(0, 2)).toEqual(["[1] Lights: not sent, with its own per-chip lines it's over the game's limits:", expect.stringMatching(/^ {2}line 129: max-lines /)]);
+		expect(s.chip("Lights [1].ic10")).toBe(list(long));
+	});
+
+	it("doesn't copy a chip whose list's anchor was edited away in game, keeping its code in conflicts/", async () => {
+		const s = setup({ "Lights [1].ic10": list(["push 1"]) }, { "ic10/room.ic10": list(["push 9"]) }, { "1": "ic10/room.ic10" });
+		await syncOnce(s.options);
+		s.setChip("Lights [1].ic10", list(["push 1"]).replace("push 0", "push 5"));
+		expect((await syncOnce(s.options)).map((o) => o.kind)).toEqual(["not pulled"]);
+		expect(s.script("ic10/room.ic10")).toBe(list(["push 9"]));
+		expect(s.log).toEqual([
+			'Base/[1] Lights: edited in game, but its per-chip block from "push 0" to "poke 0 sp" isn\'t in it any more; not copied to ic10/room.ic10, its code is kept in .ic10-link/preserved/Base/conflicts/Lights [1].ic10',
+		]);
 	});
 });

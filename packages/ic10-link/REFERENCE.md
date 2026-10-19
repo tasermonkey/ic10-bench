@@ -10,7 +10,7 @@
 | `ic10-link unmap <chip id>` | Takes the chip out of the map. Its script stays. |
 | `ic10-link once` | One pass: each mapped chip whose script changed gets the script, if it passes its [checks](#checks-before-sending), and each chip edited in game is copied back to its script. See [Passes](#passes). |
 | `ic10-link watch` | A pass at the start, then another whenever a script, a test, a station's map or a chip's file changes, until Ctrl+C. Each line it prints starts with the time, to match against the game's console. |
-| `ic10-link per-chip <script.ic10> <name...>` | Makes the script's defines with those names [per-chip](#per-chip-defines), listed in `<script>.ic10.json` beside it: makes the file if there's none, keeps what else it has, and skips a name already per-chip. A name the script doesn't define yet is added, with a note. Takes no `--chipdata` or `--station`. |
+| `ic10-link per-chip <script.ic10> [name...] [--from <code> --to <code>]` | Makes the script's defines with those names [per-chip](#per-chip-defines), and the lines between `--from` and `--to` a [per-chip block](#per-chip-blocks), listed in `<script>.ic10.json` beside it: makes the file if there's none, keeps what else it has, and skips what's already per-chip. A name the script doesn't define yet is added, with a note; a block the script doesn't have isn't. Takes no `--chipdata` or `--station`. |
 | `ic10-link repl` | A prompt to run the commands one after another, without typing `ic10-link`. See [The REPL](#the-repl). |
 
 A chip id is the number in brackets in the chip's file name, with or without the brackets: `450`
@@ -38,7 +38,7 @@ is the project's folder.
 
 | State | Meaning |
 | --- | --- |
-| `same` | The chip runs the script as it is (compared as the game reads them: trailing spaces, tabs and line endings don't count), but for the values of its [per-chip defines](#per-chip-defines), which `status` shows after the state. |
+| `same` | The chip runs the script as it is (compared as the game reads them: trailing spaces, tabs and line endings don't count), but for the values of its [per-chip defines](#per-chip-defines) and the lines of its [per-chip blocks](#per-chip-blocks), which `status` shows after the state. |
 | `differs` | The chip's code and the script differ. |
 | `no script` | The map names a script the project doesn't have. |
 | `not in game` | The game hasn't written the chip's file: the station isn't loaded yet, or the chip is gone. |
@@ -86,9 +86,36 @@ The script says so itself, once for every chip and every station, in either of t
 | A chip whose only change in game is a per-chip value | Nothing: that's not an edit. |
 
 The names are read from the script in the project, never from the chip, so deleting a marker in
-game changes nothing. A `.json` that isn't as above stops the pass, with its name. A name in it that
-the script doesn't define shows in `status` as `not in the script`. `checkPerChipFiles(root)` lists
-the `.ic10.json` files whose script is gone, for a project's tests, beside `checkStations`.
+game changes nothing. A `.json` that isn't as above skips the chip, with the file's name, and is a
+lint error (`per-chip-block`). A name in it that the script doesn't define shows in `status` as `not
+in the script`. `checkPerChipFiles(root)` lists the `.ic10.json` files whose script is gone, for a
+project's tests, beside `checkStations`.
+
+## Per-chip blocks
+
+A block is lines that belong to each chip, however many each has: a list of names a script pushes
+to its stack, say, one list per room. It's the lines between two lines of code, its anchors, which
+are the script's:
+
+| Way | Looks like |
+| --- | --- |
+| Comments starting `link-per-chip {` and `link-per-chip }` on the anchors. Anything after is a note. | `push 0 # link-per-chip {` … `poke 0 sp # link-per-chip }` |
+| `<script>.json`, by the anchors' code; `ic10-link per-chip <script> --from <code> --to <code>` writes it. | `{ "perChip": { "byBlock": [{ "from": "push 0", "to": "poke 0 sp" }] } }` |
+
+A block is found in a text by its markers, or else by its anchors' code: the first line with the
+start's code, then the first after it with the end's. So a chip that has the list but not the
+markers yet is found too, and adding the markers to a script doesn't count as a change.
+
+| Pass | With per-chip blocks |
+| --- | --- |
+| Comparing | Each block's lines don't count, nor the markers. A chip whose list differs, in length too, is `same`; `status` shows how many lines it has. |
+| Sending the script | Each block gets the chip's lines. A chip without the block (empty, or running something else) gets the script's; if it had code, that's kept in `backups/` first. |
+| The game's limits | What each chip is sent is checked against them (with the script's override, if it has one): a chip whose own lines take it over isn't sent. Per-chip defines' values count too. |
+| Copying a chip's edit to the script | Each block keeps the script's lines. A chip whose anchor was edited away isn't copied, since its own lines can't be told from the rest: it's kept in `conflicts/`, and `once` exits 1. |
+
+Every line after a block's start is a different line on each chip, so jump to labels, not line
+numbers: ic10-lint's `per-chip-jump` warns about one, and `per-chip-block` about a block it can't
+find (a marker without its pair, or on a line with no code).
 
 ## Checks before sending
 

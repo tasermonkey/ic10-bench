@@ -271,7 +271,7 @@ The tests it makes for each script:
 | `limits` | 128 lines, 90 characters a line and 4096 characters, counted as the game counts them. |
 | `loads` | The script loads: syntax, argument counts, aliases, defines and labels. |
 | `devices` | Batch instructions (`lb`, `sbn`, …) use logic types their devices have, mods' devices included; `HASH()` of a number or of a prefab that doesn't exist. |
-| `style` | Relative branches given a label, jumps to line numbers, unused aliases, defines and labels. |
+| `style` | Relative branches given a label, jumps to line numbers, ic10-link's per-chip blocks (each one findable, no jump by number past one), unused aliases, defines and labels. |
 | `idle` | Run for 50 ticks against stand-in devices, it doesn't halt or run out of lines (a loop with no `yield`). See [The idle test](#the-idle-test). |
 
 ### `describeScriptChecks()` options
