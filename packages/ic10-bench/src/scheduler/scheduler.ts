@@ -1,6 +1,7 @@
 import type { Ic10Error } from "@tasermonkey/ic10";
 import type { DebugGate } from "../debug/gate.ts";
 import type { EngineChip, StepOutcome } from "../engine/chip.ts";
+import type { HostedChip } from "../world/kinds.ts";
 import type { World } from "../world/world.ts";
 import { SimBudgetError, SimHaltError } from "./errors.ts";
 
@@ -59,22 +60,28 @@ export class ChipState {
 	readonly restartLog: number[] = [];
 	/** Whether the chip's turn has come yet in the tick in progress. */
 	turnStarted = false;
+	/** Lines the chip may run in the turn in progress, fixed when the turn starts. */
+	turnLines: number;
+	/** Its host held it at the start of the turn in progress, so it sits this turn out. */
+	held = false;
 
-	/** Test-side key of the housing. */
+	/** Test-side key: of the housing, or the chip's own key for a chip a device kind hosts. */
 	readonly key: string;
 	readonly engine: EngineChip;
 	/** Where the program came from: a file path, `<code>` for inline source, or `<env>`. */
 	readonly source: string;
-	/** Lines per tick before an automatic yield (the game's is 128). */
-	readonly linesPerTick: number;
 	/** Whether blank, comment and label lines use up the per-tick budget (they do in game). */
 	readonly countNonInstructionLines: boolean;
-	/** Which device (by key) is on each pin, e.g. `{ d0: "vent" }`. */
-	readonly pins: Readonly<Record<string, string>>;
 	/** Whether a restart (housing switched off, then on) clears registers and the stack. */
 	readonly restartClearsState: boolean;
 	/** Absolute path of the program's file, or undefined for inline and env programs. */
 	readonly path: string | undefined;
+	/** Key of the device hosting the chip, its `db`: the housing, or a device kind's device. */
+	readonly hostKey: string;
+	/** A hosted chip's hooks into the host, or undefined for a chip in a housing of its own. */
+	readonly hosting: HostedChip | undefined;
+	private readonly baseLinesPerTick: number;
+	private readonly staticPins: Readonly<Record<string, string>>;
 
 	constructor(
 		key: string,
@@ -85,15 +92,37 @@ export class ChipState {
 		pins: Record<string, string> = {},
 		restartClearsState = false,
 		path?: string,
+		host?: { key: string; chip: HostedChip },
 	) {
 		this.key = key;
 		this.engine = engine;
 		this.source = source;
-		this.linesPerTick = linesPerTick;
+		this.baseLinesPerTick = linesPerTick;
 		this.countNonInstructionLines = countNonInstructionLines;
-		this.pins = pins;
+		this.staticPins = pins;
 		this.restartClearsState = restartClearsState;
 		this.path = path;
+		this.hostKey = host?.key ?? key;
+		this.hosting = host?.chip;
+		this.turnLines = linesPerTick;
+	}
+
+	/** Lines per tick before an automatic yield (the game's is 128), or what the host says now. */
+	get linesPerTick(): number {
+		return this.hosting?.linesPerTick?.() ?? this.baseLinesPerTick;
+	}
+
+	/** Which device (by key) is on each pin, e.g. `{ d0: "vent" }`; a host says for its chips. */
+	get pins(): Readonly<Record<string, string>> {
+		if (!this.hosting?.pins) return this.staticPins;
+		const out: Record<string, string> = {};
+		for (const [pin, key] of Object.entries(this.hosting.pins())) if (key !== undefined) out[pin] = key;
+		return out;
+	}
+
+	/** Whether it has power: its host says, or else its housing's `On`. */
+	get powered(): boolean {
+		return this.hosting?.powered ? this.hosting.powered() : this.engine.switchedOn;
 	}
 
 	/** Times the chip used up its lines for a tick and was preempted. */
@@ -108,7 +137,7 @@ export class ChipState {
 
 	/** Whether the chip can run a line now, in the tick in progress. */
 	get runnable(): boolean {
-		return !this.stopped && !this.switchedOff && !this.doneThisTick && this.sleepUntil === null;
+		return !this.stopped && !this.switchedOff && !this.held && !this.doneThisTick && this.sleepUntil === null;
 	}
 }
 
@@ -187,6 +216,8 @@ export class Scheduler {
 			if (!chip.turnStarted) {
 				chip.turnStarted = true;
 				this.checkPower(chip);
+				chip.held = chip.hosting?.held?.() ?? false;
+				chip.turnLines = chip.linesPerTick;
 			}
 			if (!chip.runnable) {
 				this.cursor++;
@@ -212,17 +243,19 @@ export class Scheduler {
 			chip.linesThisTick = 0;
 			chip.doneThisTick = false;
 			chip.turnStarted = false;
+			chip.held = false;
 			if (chip.sleepUntil !== null && this.time + EPSILON >= chip.sleepUntil) chip.sleepUntil = null;
 		}
 	}
 
 	/**
-	 * At the start of a chip's turn: skip it while its housing is switched off, and restart it from
-	 * line 0 once it's switched back on. Switching off and on again within one turn goes unnoticed,
-	 * so a script that power-cycles another chip has to yield in between.
+	 * At the start of a chip's turn: skip it while its housing is switched off (or its host says it
+	 * has no power), and restart it from line 0 once it's switched back on. Switching off and on
+	 * again within one turn goes unnoticed, so a script that power-cycles another chip has to yield
+	 * in between.
 	 */
 	private checkPower(chip: ChipState): void {
-		if (!chip.engine.switchedOn) {
+		if (!chip.powered) {
 			chip.switchedOff = true;
 			return;
 		}
@@ -247,7 +280,13 @@ export class Scheduler {
 		await gate?.beforeLine?.(info);
 
 		const counts = chip.countNonInstructionLines || chip.engine.isInstruction(line);
-		const outcome = await chip.engine.step();
+		chip.hosting?.beforeStep?.();
+		let outcome: StepOutcome;
+		try {
+			outcome = await chip.engine.step();
+		} finally {
+			chip.hosting?.afterStep?.();
+		}
 		if (outcome.kind !== "end") {
 			chip.linesExecuted++;
 			this.linesThisRun++;
@@ -279,7 +318,7 @@ export class Scheduler {
 		if (outcome.kind !== "end") await gate?.afterLine?.(info);
 
 		if (ticks && counts) chip.linesThisTick++;
-		if (ticks && !chip.doneThisTick && !chip.stopped && chip.linesThisTick >= chip.linesPerTick) {
+		if (ticks && !chip.doneThisTick && !chip.stopped && chip.linesThisTick >= chip.turnLines) {
 			chip.autoYieldLog.push({ tick: this.tick, line });
 			chip.doneThisTick = true;
 			await gate?.onAutoYield?.(info);

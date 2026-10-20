@@ -4,8 +4,9 @@ import { modPrefabs } from "../catalog/mods.ts";
 import { type DebugGate, getDefaultDebugGate } from "../debug/gate.ts";
 import { DEVICE_PIN } from "../debug/protocol.ts";
 import { buildEngine, type Engine, type EngineDeviceSpec, type EngineHousingSpec } from "../engine/build.ts";
-import { hasDeviceData, isCatalogued } from "../engine/device.ts";
+import { hash, hasDeviceData, isCatalogued } from "../engine/device.ts";
 import { MIRROR_PREFAB } from "../engine/mirror.ts";
+import { STUB_PREFAB } from "../engine/stub.ts";
 import { parseId, type ReferenceId } from "../engine/ids.ts";
 import { ChipState, Scheduler } from "../scheduler/scheduler.ts";
 import { GAME_TICK_SECONDS } from "../scheduler/time.ts";
@@ -23,6 +24,7 @@ import {
 	type RoomInit,
 } from "./atmospheres.ts";
 import { EventQueue } from "./events.ts";
+import type { DeviceKind, HostedChip, HostedProgram, KindContext } from "./kinds.ts";
 import { type DeviceEntry, World } from "./world.ts";
 
 /**
@@ -122,6 +124,12 @@ export interface HousingOptions<P extends KnownPrefab = "StructureCircuitHousing
 	restartClearsState?: boolean;
 }
 
+/** Where an extension's device is, and its own logic properties: what every device has. */
+export interface KindDeviceOptions extends Omit<DeviceOptions, "custom"> {
+	/** Its logic properties, as `device()`'s `props`. */
+	props?: Record<string, number>;
+}
+
 interface DeviceDecl {
 	key: string;
 	prefab: string;
@@ -129,6 +137,9 @@ interface DeviceDecl {
 	options: DeviceOptions;
 	housing?: HousingOptions<KnownPrefab>;
 	mirror?: MirrorOptions;
+	kind?: { kind: DeviceKind<unknown>; options: unknown };
+	/** A stand-in for the idle check (engine/stub.ts). */
+	stub?: true;
 }
 
 /** First automatic reference ID; later ones count up, skipping any given explicitly. */
@@ -223,6 +234,23 @@ export class SimBuilder {
 		return this;
 	}
 
+	/**
+	 * Add a device an extension package makes: `kind` is what the package exports, and `options` are
+	 * that kind's own. `device` places it as `device()`'s options do. A kind may host chips of its own,
+	 * each found by its own key with `world.chip(key)`, and each with the kind's device as its `db`.
+	 */
+	add<O>(key: string, kind: DeviceKind<O>, options: O, device: KindDeviceOptions = {}): this {
+		const { props = {}, ...place } = device;
+		this.decls.push({ key, prefab: kind.prefab, props, options: place, kind: { kind: kind as DeviceKind<unknown>, options } });
+		return this;
+	}
+
+	/** @internal A stand-in device for the idle check: every logic type and slot, all reading 0. */
+	stub(key: string, options: Pick<DeviceOptions, "id" | "network"> = {}): this {
+		this.decls.push({ key, prefab: STUB_PREFAB, props: {}, options, stub: true });
+		return this;
+	}
+
 	async build(): Promise<World> {
 		const opts = this.options;
 		const networks = this.networks.length > 0 ? this.networks : ["data"];
@@ -236,11 +264,19 @@ export class SimBuilder {
 		for (const decl of this.decls) {
 			if (keys.has(decl.key)) throw new Error(`sim: "${decl.key}" is declared twice`);
 			keys.add(decl.key);
-			if (decl.mirror) continue;
+			if (decl.mirror || decl.stub) continue;
 			if (decl.housing && decl.options.custom) {
 				throw new Error(`sim: housing "${decl.key}": a housing can't be custom`);
 			}
 			const known = hasDeviceData(decl.prefab) || modPrefabs().has(decl.prefab);
+			if (decl.kind) {
+				if (!known) {
+					throw new Error(
+						`sim: "${decl.key}": no device ${decl.prefab} in the emulator or the project's ic10-mods/; add its mod's export there`,
+					);
+				}
+				continue;
+			}
 			if (decl.housing && !isCatalogued(decl.prefab)) {
 				throw new Error(`sim: housing "${decl.key}": the emulator has no housing ${decl.prefab}`);
 			}
@@ -254,7 +290,20 @@ export class SimBuilder {
 			}
 		}
 
+		for (const decl of this.decls) decl.kind?.kind.validate?.(decl.kind.options, { key: decl.key, keys });
+
 		const ids = this.assignIds();
+		let nextId = Math.max(FIRST_AUTO_ID, ...ids.values()) + 1;
+		const kindContext = (decl: DeviceDecl): KindContext => ({
+			key: decl.key,
+			id: ids.get(decl.key)!,
+			prefab: decl.prefab,
+			hash: hash(decl.prefab),
+			...(decl.options.name !== undefined && { name: decl.options.name }),
+			idOf: (key) => ids.get(key),
+			program: (source, what) => readProgram(`"${decl.key}" ${what}`, source, root),
+			nextId: () => nextId++,
+		});
 		const specs = this.decls.map((decl): EngineDeviceSpec | EngineHousingSpec => {
 			const base: EngineDeviceSpec = {
 				key: decl.key,
@@ -265,6 +314,8 @@ export class SimBuilder {
 				props: decl.props,
 				...(modPrefabs().has(decl.prefab) && { mod: modPrefabs().get(decl.prefab)! }),
 				...(decl.mirror && { mirror: this.mirrorSpec(decl.key, decl.mirror, ids) }),
+				...(decl.kind && { create: () => decl.kind!.kind.create(kindContext(decl), decl.kind!.options) }),
+				...(decl.stub && { stub: true }),
 			};
 			if (!decl.housing) return base;
 			const pins: Record<string, number> = {};
@@ -310,21 +361,39 @@ export class SimBuilder {
 			return { key: s.key, device, prefab: s.prefab, network: s.network, attached, readings };
 		});
 		const keyOfId = new Map(specs.map((s) => [s.id, s.key]));
-		const chips = housingSpecs.map((spec): ChipDecl => {
-			const housing = this.decls.find((d) => d.key === spec.key)!.housing!;
-			return {
-				key: spec.key,
-				id: spec.id,
-				source: housing.file ?? "<code>",
-				...(housing.file !== undefined && { path: resolve(root, housing.file) }),
-				pins: Object.fromEntries(Object.entries(spec.pins).map(([pin, id]) => [pin, keyOfId.get(id)!])),
-				...(housing.linesPerTick !== undefined && { linesPerTick: housing.linesPerTick }),
-				...(housing.countNonInstructionLines !== undefined && {
-					countNonInstructionLines: housing.countNonInstructionLines,
-				}),
-				...(housing.restartClearsState !== undefined && { restartClearsState: housing.restartClearsState }),
-			};
-		});
+		// Chips run in declaration order: a housing's where it's declared, a host's chips where the host is.
+		const chips: ChipDecl[] = [];
+		for (const spec of specs) {
+			if ("code" in spec) {
+				const housing = this.decls.find((d) => d.key === spec.key)!.housing!;
+				chips.push({
+					key: spec.key,
+					id: spec.id,
+					source: housing.file ?? "<code>",
+					...(housing.file !== undefined && { path: resolve(root, housing.file) }),
+					pins: Object.fromEntries(Object.entries(spec.pins).map(([pin, id]) => [pin, keyOfId.get(id)!])),
+					...(housing.linesPerTick !== undefined && { linesPerTick: housing.linesPerTick }),
+					...(housing.countNonInstructionLines !== undefined && {
+						countNonInstructionLines: housing.countNonInstructionLines,
+					}),
+					...(housing.restartClearsState !== undefined && { restartClearsState: housing.restartClearsState }),
+				});
+			}
+			for (const hosted of engine.hosted.get(spec.id) ?? []) {
+				// Snapshots and `world.value` keep chips and devices in one set of keys.
+				if (keys.has(hosted.key) || chips.some((c) => c.key === hosted.key)) {
+					throw new Error(`sim: "${spec.key}" hosts a chip "${hosted.key}", a key the world already has`);
+				}
+				chips.push({
+					key: hosted.key,
+					id: hosted.housing.id,
+					source: hosted.source,
+					...(hosted.path !== undefined && { path: hosted.path }),
+					pins: {},
+					host: { key: spec.key, chip: hosted },
+				});
+			}
+		}
 		return assembleWorld(engine, entries, chips, opts, this.atmospheres);
 	}
 
@@ -404,6 +473,8 @@ export interface ChipDecl {
 	linesPerTick?: number;
 	countNonInstructionLines?: boolean;
 	restartClearsState?: boolean;
+	/** A chip a device kind hosts: the host's key, and the kind's hooks. */
+	host?: { key: string; chip: HostedChip };
 }
 
 /** @internal Wrap built emulator objects in a World with its scheduler. */
@@ -430,6 +501,7 @@ export function assembleWorld(
 				chip.pins,
 				chip.restartClearsState ?? opts.restartClearsState ?? false,
 				chip.path,
+				chip.host,
 			),
 	);
 	const gate = opts.debug === false ? undefined : (opts.debug ?? getDefaultDebugGate());
@@ -454,11 +526,18 @@ export function assembleWorld(
 }
 
 function programOf(key: string, housing: HousingOptions<KnownPrefab>, root: string): string {
-	const { file, code } = housing;
+	return readProgram(`housing "${key}"`, housing, root).code;
+}
+
+/** A program from `file` (relative to `root`) or inline `code`; `what` names its owner in errors. */
+function readProgram(what: string, source: { file?: string; code?: string }, root: string): HostedProgram {
+	const { file, code } = source;
 	if ((file === undefined) === (code === undefined)) {
-		throw new Error(`sim: housing "${key}" needs exactly one of { file } or { code }`);
+		throw new Error(`sim: ${what} needs exactly one of { file } or { code }`);
 	}
-	return file !== undefined ? readScript(resolve(root, file)) : code!.replace(/\r\n/g, "\n");
+	if (file === undefined) return { code: code!.replace(/\r\n/g, "\n"), source: "<code>" };
+	const path = resolve(root, file);
+	return { code: readScript(path), source: file, path };
 }
 
 /** Start declaring a world: `sim().device(…).housing(…).build()`. */

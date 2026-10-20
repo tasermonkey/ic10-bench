@@ -183,7 +183,7 @@ export class World {
 		return [...this.atmospheres.values()];
 	}
 
-	/** A chip's housing, i.e. its `db`. */
+	/** The device hosting a chip, i.e. its `db`: its housing, or a device kind's device. */
 	db(key: string): DeviceHandle {
 		return this.chip(key).db;
 	}
@@ -206,7 +206,7 @@ export class World {
 		if (atmosphere) return atmosphereValue(atmosphere, name);
 		const chip = this.chips.get(key);
 		if (chip?.hasRegister(name)) return chip.reg(name);
-		return this.device(key).get(name);
+		return chip ? chip.db.get(name) : this.device(key).get(name);
 	}
 
 	/** A path as snapshots spell it: a register alias becomes its register (`ic.Stage` → `ic.r15`). */

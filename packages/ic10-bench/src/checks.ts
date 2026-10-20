@@ -26,14 +26,19 @@ import {
 	overrideMatches,
 	parseLiteral,
 	parseScript,
+	perChipFile,
 	projectRelative,
+	readPerChipFile,
 	type SeveritySetting,
 } from "@tasermonkey/ic10-lint";
 import { describe, expect, it, type TestContext } from "vitest";
 import { loadCatalog } from "./catalog/catalog.ts";
 import { acceptEveryLogicType, connectStubs } from "./engine/stub.ts";
 import { projectRoot } from "./project.ts";
+import type { DeviceKind, IdleStubs } from "./world/kinds.ts";
 import { sim } from "./world/sim.ts";
+
+const PINS = ["d0", "d1", "d2", "d3", "d4", "d5"] as const;
 
 /** The tests made for each script, and the ic10-lint rules each one runs. */
 export const CHECK_GROUPS: Record<string, readonly string[]> = {
@@ -77,6 +82,11 @@ export interface ScriptChecksOptions {
 	root?: string;
 	/** The config file, if not `ic10-lint.json` in the project's folder. */
 	config?: string;
+	/**
+	 * Device kinds from extension packages. A script whose `<script>.json` names one's prefab as its
+	 * `"host"` runs its idle check in that kind's device, as the kind's `idle()` sets it up.
+	 */
+	extensions?: readonly DeviceKind<unknown>[];
 }
 
 const where = (f: Finding) => `line ${f.line + 1}:${f.column + 1} ${f.rule}: ${f.message}${f.text ? `  (${f.text})` : ""}`;
@@ -96,21 +106,53 @@ export async function checkFindings(context: CheckContext, findings: Finding[]):
  * every reference ID the script writes, let the housing answer any logic type (for a chip meant to
  * sit in another device), run it, and fail on a halt or an automatic yield. Everything reads 0, so
  * this runs the paths a script takes with its devices empty, off or at rest. A halt for a device it
- * still can't find skips the test instead.
+ * still can't find skips the test instead. A script whose `<script>.json` names a `host` runs in
+ * that device kind's device instead, with stand-ins on the pins the kind gives it.
  */
-export async function checkIdle(context: CheckContext, root: string, file: string, severity: SeveritySetting): Promise<void> {
+export async function checkIdle(
+	context: CheckContext,
+	root: string,
+	file: string,
+	severity: SeveritySetting,
+	extensions: readonly DeviceKind<unknown>[] = [],
+): Promise<void> {
+	const ids = referenceIdLiterals(readFileSync(file, "utf8"));
+	const perScript = perChipFile(file);
+	const host = existsSync(perScript) ? readPerChipFile(perScript, projectRelative(root, perScript)).host : undefined;
+	const kind = host === undefined ? undefined : extensions.find((k) => k.prefab === host);
+	if (host !== undefined && !kind?.idle) {
+		throw new Error(
+			kind
+				? `its host ${host} has no idle() in its extension, so it can't run alone`
+				: `its host is ${host}: pass that extension's device kind to describeScriptChecks({ extensions })`,
+		);
+	}
+
 	let world: Awaited<ReturnType<ReturnType<typeof sim>["build"]>>;
+	let chipKey = "ic";
 	try {
-		world = await sim({ root, debug: false }).housing("ic", { file }).build();
+		const builder = sim({ root, debug: false });
+		if (kind) {
+			const pins = Object.fromEntries(PINS.map((pin) => [pin, `stub-${pin}`])) as IdleStubs["pins"];
+			for (const key of Object.values(pins)) builder.stub(key);
+			for (const id of ids) builder.stub(`stub-${id}`, { id });
+			const idle = kind.idle!(file, { pins });
+			chipKey = idle.chip;
+			world = await builder.add("host", kind, idle.options).build();
+		} else {
+			world = await builder.housing("ic", { file }).build();
+		}
 	} catch (error) {
 		context.skip(`doesn't load, so it can't run (see "loads"): ${(error as Error).message}`);
 		return;
 	}
-	const housing = world.db("ic").raw as Housing;
-	connectStubs(housing, referenceIdLiterals(readFileSync(file, "utf8")));
-	acceptEveryLogicType(housing);
+	if (!kind) {
+		const housing = world.db("ic").raw as Housing;
+		connectStubs(housing, ids);
+		acceptEveryLogicType(housing);
+	}
 	await world.runTicks(IDLE_TICKS);
-	const chip = world.chip("ic");
+	const chip = world.chip(chipKey);
 	const halt = chip.halt;
 	if (halt && NEEDS_DEVICE.test(halt.error.message)) {
 		context.skip(`needs devices: ${halt.error.message} at line ${halt.line + 1}`);
@@ -121,7 +163,7 @@ export async function checkIdle(context: CheckContext, root: string, file: strin
 	if (chip.autoYields > 0) {
 		const last = chip.autoYieldLog.at(-1)!;
 		problems.push(
-			`ran out of its 128 lines ${chip.autoYields} times in ${IDLE_TICKS} ticks (last at line ${last.line + 1}): a loop with no yield or sleep`,
+			`ran out of its ${chip.linesPerTick} lines ${chip.autoYields} times in ${IDLE_TICKS} ticks (last at line ${last.line + 1}): a loop with no yield or sleep`,
 		);
 	}
 	if (normalizeSeverity(severity) === "warning") {
@@ -166,7 +208,7 @@ export function describeScriptChecks(options: ScriptChecksOptions = {}): void {
 				}
 				const severity = idleSeverity(file);
 				if (normalizeSeverity(severity) !== "off") {
-					it("idle", (context) => checkIdle(context, root, file, severity));
+					it("idle", (context) => checkIdle(context, root, file, severity, options.extensions));
 				}
 			});
 		}

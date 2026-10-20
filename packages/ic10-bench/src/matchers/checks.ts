@@ -328,8 +328,8 @@ export function checkOnlyChange(
 		const source = canonical.split("*").map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join(".*");
 		return new RegExp(`^${source}$`);
 	});
-	// A housing's LineNumber moves with every line run, so it only counts when asked for.
-	const chipKeys = world ? new Set(world.listChips().map((c) => c.key)) : undefined;
+	// A host's LineNumber (a housing's) moves with every line run, so it only counts when asked for.
+	const chipKeys = world ? new Set(world.listChips().map((c) => c.db.key)) : undefined;
 	const isLineNumber = (path: string) =>
 		path.endsWith(".LineNumber") && (!chipKeys || chipKeys.has(path.slice(0, -".LineNumber".length)));
 	const unexpected = changes.filter((c) => !patterns.some((p) => p.test(c.path)) && !isLineNumber(c.path));

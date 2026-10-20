@@ -80,10 +80,19 @@ export {
 	type OccupancyWindow,
 	occupancySchedule,
 } from "./models/schedules.ts";
+export type {
+	DeviceKind,
+	HostedChip,
+	HostedProgram,
+	IdleStubs,
+	KindContext,
+	KindDevice,
+} from "./world/kinds.ts";
 export {
 	type DeviceOptions,
 	type DeviceSpec,
 	type HousingOptions,
+	type KindDeviceOptions,
 	type KnownPrefab,
 	type MirrorOptions,
 	type Pin,

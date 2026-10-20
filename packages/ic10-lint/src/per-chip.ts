@@ -41,11 +41,16 @@ export interface PerChipProblem {
 	message: string;
 }
 
-/** A per-script file as it's read: all of it, and its `perChip` declarations. */
+/** A per-script file as it's read: all of it, its `perChip` declarations, and its `host`. */
 export interface PerChipFile {
 	json: Record<string, unknown>;
 	names: string[];
 	blocks: BlockAnchors[];
+	/**
+	 * The prefab of the device the script runs in, for one that holds several chips (an extension's
+	 * device kind): IC10 Bench's idle check runs the script there. Undefined: a circuit housing.
+	 */
+	host?: string;
 }
 
 /** A script's per-script file, beside it: `<script>.json`. */
@@ -103,7 +108,14 @@ export function readPerChipFile(file: string, name = file): PerChipFile {
 	if (!Array.isArray(blocks) || !blocks.every((b) => isObject(b) && isAnchor(b.from) && isAnchor(b.to))) {
 		throw new Error(`${name}: "perChip.byBlock" must be a list of { "from": <a line of code>, "to": <a line of code> }`);
 	}
-	return { json, names, blocks: blocks.map((b) => ({ from: b.from as string, to: b.to as string })) };
+	const host = json.host;
+	if (host !== undefined && (typeof host !== "string" || host === "")) throw new Error(`${name}: "host" must be a prefab name`);
+	return {
+		json,
+		names,
+		blocks: blocks.map((b) => ({ from: b.from as string, to: b.to as string })),
+		...(host !== undefined && { host }),
+	};
 }
 
 /**

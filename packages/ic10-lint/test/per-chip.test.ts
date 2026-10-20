@@ -95,6 +95,12 @@ describe("readPerChipFile", () => {
 		expect(() => read('{ "perChip": { "byBlock": [{ "from": "push 0" }] } }')).toThrow('a.ic10.json: "perChip.byBlock" must be a list of { "from": <a line of code>, "to": <a line of code> }');
 		expect(() => read('{ "perChip": { "byBlock": [{ "from": "# just a comment", "to": "poke 0 sp" }] } }')).toThrow(/byBlock/);
 	});
+
+	it("reads the host the script runs in, which is optional", () => {
+		expect(read('{ "host": "StructureServerRack" }').host).toBe("StructureServerRack");
+		expect(read("{}").host).toBeUndefined();
+		expect(() => read('{ "host": 5 }')).toThrow('a.ic10.json: "host" must be a prefab name');
+	});
 });
 
 describe("lintFile and the per-script file", () => {

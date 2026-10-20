@@ -149,8 +149,8 @@ function devices(chip: ChipHandle): Node[] {
 		shown.add(key);
 		out.push({ ...deviceNode(chip, world.device(key), pin), name: `${pin} → ${key}` });
 	}
-	shown.add(chip.key);
-	out.push({ ...deviceNode(chip, chip.db, "db"), name: `db → ${chip.key}` });
+	shown.add(chip.db.key);
+	out.push({ ...deviceNode(chip, chip.db, "db"), name: `db → ${chip.db.key}` });
 	for (const device of world.network(chip.db.network).devices()) {
 		if (!shown.has(device.key)) out.push(deviceNode(chip, device, device.key));
 	}

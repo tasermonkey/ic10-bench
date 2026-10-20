@@ -11,7 +11,10 @@ export function describeChip(chip: ChipState, scheduler: Scheduler): string {
 		const text = chip.engine.lineText(chip.halt.line)?.trim() ?? "";
 		return `halted at line ${chip.halt.line} (${JSON.stringify(text)}) in tick ${chip.halt.tick}: ${chip.halt.error.message}`;
 	}
-	if (chip.switchedOff) return `switched off (housing On = 0), ${yields}`;
+	if (chip.switchedOff) {
+		return chip.hosting ? `switched off (no power from "${chip.hostKey}"), ${yields}` : `switched off (housing On = 0), ${yields}`;
+	}
+	if (chip.held) return `held by "${chip.hostKey}" at line ${chip.engine.nextLine}, ${yields}`;
 	if (chip.ended) return `ended (ran off the end of the program), ${yields}`;
 	const line = chip.engine.nextLine;
 	const at = `at line ${line} (${JSON.stringify(chip.engine.lineText(line)?.trim() ?? "")})`;

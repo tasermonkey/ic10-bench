@@ -102,7 +102,7 @@ export function chipReport(chip: ChipHandle, options: ChipReportOptions = {}): s
 	if (!options.noDevices) {
 		const pins = Object.entries(chip.pins);
 		out.push("devices:");
-		for (const [pin, key] of [...pins, ["db", chip.key] as const]) {
+		for (const [pin, key] of [...pins, ["db", chip.db.key] as const]) {
 			const device = world.device(key);
 			out.push(`  ${pin.padEnd(2)} → ${describeDevice(device)}`, ...formatProps(device.props(), "         "));
 		}

@@ -5,7 +5,10 @@ import type { AutoYield, ChipState, Halt, TraceEntry } from "../../scheduler/sch
 import type { RunBudget, World } from "../world.ts";
 import type { DeviceHandle } from "./device.ts";
 
-/** A chip in its housing, found by the housing's test-side key. */
+/**
+ * A chip, found by its housing's test-side key; a chip a device kind hosts (several to one device)
+ * has a key of its own.
+ */
 export class ChipHandle {
 	/** The world the chip is in. */
 	readonly world: World;
@@ -35,9 +38,9 @@ export class ChipHandle {
 		return this.state.pins;
 	}
 
-	/** The housing, i.e. the chip's `db`. */
+	/** The device hosting the chip, i.e. its `db`: its housing, or the device kind's device. */
 	get db(): DeviceHandle {
-		return this.world.device(this.state.key);
+		return this.world.device(this.state.hostKey);
 	}
 
 	/** A register's value, by `r0`–`r17`, `sp`, `ra`, or an alias the script has defined. */

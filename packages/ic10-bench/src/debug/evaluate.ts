@@ -40,8 +40,9 @@ export function evaluate(chip: ChipHandle, expression: string): number {
 		if (key === undefined) throw new Error(`"${memory[1]}" isn't a pin, device alias or device`);
 		const index = evaluate(chip, memory[2]!);
 		if (!(Number.isInteger(index) && index >= 0)) throw new Error(`${expr}: ${index} isn't an index`);
-		// A housing's memory is its chip's stack; other devices (a logic sorter) have their own.
-		const housing = chip.world.listChips().find((c) => c.key === key);
+		// A housing's memory is its chip's stack; other devices (a logic sorter, a host of several
+		// chips) have their own.
+		const housing = chip.world.listChips().find((c) => c.key === key && c.db.key === key);
 		return housing ? housing.stackAt(index) : chip.world.device(key).stackAt(index);
 	}
 
@@ -98,7 +99,7 @@ export function interpolate(chip: ChipHandle, message: string): string {
 export function deviceKeyFor(chip: ChipHandle, name: string): string | undefined {
 	const alias = chip.defines().find((d) => d.kind === "alias" && d.name === name);
 	const pin = alias && PIN.test(alias.value) ? alias.value : name;
-	if (pin === "db") return chip.key;
+	if (pin === "db") return chip.db.key;
 	if (PIN.test(pin)) {
 		const key = chip.pins[pin];
 		if (key === undefined) throw new Error(`nothing is on ${pin}`);

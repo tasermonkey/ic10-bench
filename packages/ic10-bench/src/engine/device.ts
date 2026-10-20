@@ -72,6 +72,14 @@ export function registerModPrefab(prefab: CatalogPrefab): void {
 }
 
 /**
+ * Add a prefab's name to the emulator's hash table: `lb`, `sb` and the rest reject a hash missing
+ * from it. Global, but only adds a prefab the game has and the emulator doesn't.
+ */
+export function registerPrefabName(prefab: string): void {
+	(Devices as unknown as BiMap<number, string>).set(new HashString(prefab).hash, prefab);
+}
+
+/**
  * A device the emulator's catalogue doesn't have. Its PrefabHash is HASH(prefab), so batch
  * instructions find it. A mod's device registered with {@link registerModPrefab} has exactly its
  * own logic types; any other has every logic property, readable and writable.
@@ -79,9 +87,7 @@ export function registerModPrefab(prefab: CatalogPrefab): void {
 export class CustomDevice extends Structure {
 	constructor(id: number, prefab: string) {
 		const prefabName = new HashString(prefab);
-		// lb, sb and the rest reject a hash missing from this table. Registering it is global, but
-		// only adds a prefab the game has and the emulator doesn't.
-		(Devices as unknown as BiMap<number, string>).set(prefabName.hash, prefab);
+		registerPrefabName(prefab);
 		super({ id, hash: prefabName.hash, name: prefab });
 		Object.defineProperty(this, "prefabName", { value: prefabName });
 		this.errors.reset(); // the emulator's "unknown device" warnings

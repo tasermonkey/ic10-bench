@@ -9,8 +9,18 @@ import {
 } from "@tasermonkey/ic10";
 import { EngineChip } from "./chip.ts";
 import type { CatalogPrefab } from "../catalog/catalog.ts";
-import { CustomDevice, isCatalogued, listProps, registerModPrefab, writeProp, writePropIfPresent } from "./device.ts";
+import type { HostedChip, KindDevice } from "../world/kinds.ts";
+import {
+	CustomDevice,
+	isCatalogued,
+	listProps,
+	registerModPrefab,
+	registerPrefabName,
+	writeProp,
+	writePropIfPresent,
+} from "./device.ts";
 import { LogicMirror } from "./mirror.ts";
+import { StubDevice } from "./stub.ts";
 
 export interface EngineDeviceSpec {
 	/** Test-side key, used in error messages. */
@@ -25,6 +35,10 @@ export interface EngineDeviceSpec {
 	mod?: CatalogPrefab;
 	/** A Logic Mirror: the reference ID of its target (none: no target yet), and whether it's powered. */
 	mirror?: { target?: number; powered: boolean };
+	/** A device kind's device: the kind makes it, and any chips it hosts. */
+	create?: () => KindDevice;
+	/** A stand-in with every logic type and slot (the idle check). */
+	stub?: boolean;
 }
 
 export interface EngineHousingSpec extends EngineDeviceSpec {
@@ -45,8 +59,10 @@ export interface Engine {
 	builder: Builder;
 	/** Every device, housings included, by reference ID. */
 	devices: Map<number, Device>;
-	/** Chips by their housing's reference ID, in the env's device order. */
+	/** Chips by their housing's reference ID, in the env's device order, then hosted chips. */
 	chips: Map<number, EngineChip>;
+	/** The chips each device kind's device hosts, by the device's reference ID. */
+	hosted: Map<number, HostedChip[]>;
 }
 
 /**
@@ -56,7 +72,7 @@ export interface Engine {
 export function buildEngine(spec: EngineSpec): Engine {
 	const port = (network: string) => [{ port: "default", network }];
 	// The env format can only build prefabs the emulator has a class for; the rest are built here.
-	const custom = new Map(spec.devices.filter((d) => !isCatalogued(d.prefab)).map((d) => [d.id, d]));
+	const custom = new Map(spec.devices.filter((d) => d.create || d.stub || !isCatalogued(d.prefab)).map((d) => [d.id, d]));
 	const env = {
 		version: 1,
 		chips: spec.housings.map((housing, i) => ({ id: i + 1, code: housing.code })),
@@ -87,12 +103,25 @@ export function buildEngine(spec: EngineSpec): Engine {
 	const keys = new Map([...spec.housings, ...spec.devices].map((d) => [d.id, d.key]));
 	const keyOf = (id: number) => keys.get(id) ?? String(id);
 	const builder = parseEnv(env, keyOf);
-	if (custom.size > 0) addCustomDevices(builder, [...custom.values()], spec.housings);
+	const hosted = custom.size > 0 ? addCustomDevices(builder, [...custom.values()], spec.housings) : new Map<number, HostedChip[]>();
 	for (const device of spec.devices) {
 		if (device.mirror?.target === undefined) continue;
 		(builder.Devices.get(device.id) as LogicMirror).target = builder.Devices.get(device.mirror.target);
 	}
-	const engine = prepareEngine(builder, spec.seed, keyOf);
+	const hostedHousings: Housing[] = [];
+	for (const [hostId, chips] of hosted) {
+		for (const chip of chips) {
+			const id = chip.housing.id;
+			if (builder.Devices.has(id) || keys.has(id)) {
+				throw new Error(`sim: "${keyOf(hostId)}" chip "${chip.key}": reference ID ${id} is taken; use the context's nextId()`);
+			}
+			if (!chip.housing.chip) throw new Error(`sim: "${keyOf(hostId)}" chip "${chip.key}": its housing has no chip`);
+			keys.set(id, chip.key);
+			hostedHousings.push(chip.housing);
+		}
+	}
+	const engine = prepareEngine(builder, spec.seed, keyOf, hostedHousings);
+	engine.hosted = hosted;
 
 	// A housing's own properties are written after its chip is reset, with the harness's messages.
 	for (const housingSpec of spec.housings) {
@@ -127,17 +156,30 @@ function parseEnv(env: EnvSchema | string, keyOf: (id: number) => string): Build
 }
 
 /**
- * Add devices the emulator's catalogue doesn't have, which its env format would reject: put each on
- * its network with its properties, then connect the housing pins that point at them.
+ * Add devices the env format would reject (ones the emulator's catalogue doesn't have, device kinds'
+ * devices and stand-ins): put each on its network with its properties, then connect the housing
+ * pins that point at them. Returns the chips each device kind's device hosts.
  */
-function addCustomDevices(builder: Builder, devices: EngineDeviceSpec[], housings: EngineHousingSpec[]): void {
+function addCustomDevices(builder: Builder, devices: EngineDeviceSpec[], housings: EngineHousingSpec[]): Map<number, HostedChip[]> {
+	const hosted = new Map<number, HostedChip[]>();
 	for (const spec of devices) {
-		if (isCatalogued(spec.prefab)) {
+		if (!spec.create && !spec.stub && isCatalogued(spec.prefab)) {
 			throw new Error(`sim: "${spec.key}": ${spec.prefab} is in the emulator's catalogue, so it can't be custom`);
 		}
 		if (spec.mod) registerModPrefab(spec.mod);
-		let device: CustomDevice;
-		if (spec.mirror) {
+		let device: Device;
+		if (spec.create) {
+			registerPrefabName(spec.prefab);
+			const made = spec.create();
+			device = made.device;
+			if (device.id !== spec.id) {
+				throw new Error(`sim: "${spec.key}": the device kind made a device with reference ID ${device.id}, not ${spec.id} (its context's id)`);
+			}
+			device.errors.reset(); // the emulator's "unknown device" warnings
+			hosted.set(spec.id, made.chips ?? []);
+		} else if (spec.stub) {
+			device = new StubDevice(spec.id);
+		} else if (spec.mirror) {
 			const mirror = new LogicMirror(spec.id);
 			mirror.powered = spec.mirror.powered;
 			device = mirror;
@@ -169,11 +211,14 @@ function addCustomDevices(builder: Builder, devices: EngineDeviceSpec[], housing
 			housing.connectDevices(Number(pin.slice(1)), builder.Devices.get(id)!);
 		}
 	}
+	return hosted;
 }
 
-function prepareEngine(builder: Builder, seed: number, keyOf: (id: number) => string): Engine {
+/** `hosted`: housings that device kinds' devices made for their chips, on no network of their own. */
+function prepareEngine(builder: Builder, seed: number, keyOf: (id: number) => string, hosted: Housing[] = []): Engine {
 	const chips = new Map<number, EngineChip>();
-	for (const [id, device] of builder.Devices) {
+	const housings: [number, Device][] = [...builder.Devices, ...hosted.map((h): [number, Device] => [h.id, h])];
+	for (const [id, device] of housings) {
 		if (!(device instanceof Housing) || !device.chip) continue;
 		const chip = device.chip;
 		const registers = new Map(chip.registers);
@@ -212,5 +257,5 @@ function prepareEngine(builder: Builder, seed: number, keyOf: (id: number) => st
 		writePropIfPresent(device, "PrefabHash", device.hash);
 	}
 
-	return { builder, devices: builder.Devices, chips };
+	return { builder, devices: builder.Devices, chips, hosted: new Map() };
 }
