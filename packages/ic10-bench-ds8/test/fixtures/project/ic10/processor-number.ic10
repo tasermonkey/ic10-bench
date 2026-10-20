@@ -1,0 +1,6 @@
+alias Display d0
+loop:
+get r0 db 4127
+s Display Setting r0
+yield
+j loop

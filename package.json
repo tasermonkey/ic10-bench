@@ -7,6 +7,7 @@
 		"packages/ic10-lint",
 		"packages/ic10-bench",
 		"packages/ic10-link",
+		"packages/ic10-bench-ds8",
 		"packages/vscode",
 		"vendor/ic10"
 	],
@@ -18,8 +19,8 @@
 		"coverage": "vitest run --coverage",
 		"test:fork": "npm test -w vendor/ic10",
 		"pretypecheck": "npm run pretest -w packages/ic10-bench",
-		"typecheck": "tsc -p packages/ic10-lint/tsconfig.json && tsc -p packages/ic10-bench/tsconfig.json && tsc -p packages/ic10-link/tsconfig.json && tsc -p packages/vscode/tsconfig.json",
-		"build": "npm run build:lib -w vendor/ic10 && npm run build -w packages/ic10-lint && npm run build -w packages/ic10-bench && npm run build -w packages/ic10-link && npm run build -w packages/vscode"
+		"typecheck": "tsc -p packages/ic10-lint/tsconfig.json && tsc -p packages/ic10-bench/tsconfig.json && tsc -p packages/ic10-link/tsconfig.json && tsc -p packages/ic10-bench-ds8/tsconfig.json && tsc -p packages/vscode/tsconfig.json",
+		"build": "npm run build:lib -w vendor/ic10 && npm run build -w packages/ic10-lint && npm run build -w packages/ic10-bench && npm run build -w packages/ic10-link && npm run build -w packages/ic10-bench-ds8 && npm run build -w packages/vscode"
 	},
 	"devDependencies": {
 		"@types/node": "^26.2.0",

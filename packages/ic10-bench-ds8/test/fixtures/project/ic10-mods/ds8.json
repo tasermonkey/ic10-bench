@@ -1,0 +1,442 @@
+{
+	"gameVersion": "0.2.6428.27798",
+	"installedMods": [
+		{
+			"workshopId": "3819662919",
+			"name": "DS-8 Server Rack",
+			"version": "5.12.2"
+		}
+	],
+	"prefabs": [
+		{
+			"prefab": "StructureServerRack",
+			"hash": 1549423555,
+			"title": "Server Rack",
+			"logic": {
+				"Power": "r",
+				"Mode": "rw",
+				"Error": "r",
+				"Temperature": "r",
+				"Lock": "rw",
+				"Charge": "r",
+				"Setting": "rw",
+				"Maximum": "r",
+				"Ratio": "r",
+				"PowerActual": "r",
+				"Quantity": "r",
+				"On": "rw",
+				"RequiredPower": "r",
+				"Idle": "r",
+				"ClearMemory": "w",
+				"PrefabHash": "r",
+				"LineNumber": "rw",
+				"ReferenceId": "r",
+				"Index": "rw",
+				"NameHash": "r",
+				"StackSize": "r"
+			},
+			"slots": [
+				{
+					"index": 0,
+					"name": "None",
+					"type": "DataDisk",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 1,
+					"name": "None",
+					"type": "DataDisk",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 2,
+					"name": "None",
+					"type": "DataDisk",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 3,
+					"name": "None",
+					"type": "DataDisk",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 4,
+					"name": "None",
+					"type": "DataDisk",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 5,
+					"name": "None",
+					"type": "DataDisk",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 6,
+					"name": "None",
+					"type": "DataDisk",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 7,
+					"name": "None",
+					"type": "DataDisk",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 8,
+					"name": "None",
+					"type": "ProgrammableChip",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 9,
+					"name": "None",
+					"type": "ProgrammableChip",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 10,
+					"name": "None",
+					"type": "ProgrammableChip",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 11,
+					"name": "None",
+					"type": "ProgrammableChip",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 12,
+					"name": "None",
+					"type": "Motherboard",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 13,
+					"name": "None",
+					"type": "ProgrammableChip",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 14,
+					"name": "None",
+					"type": "ProgrammableChip",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 15,
+					"name": "None",
+					"type": "ProgrammableChip",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 16,
+					"name": "None",
+					"type": "ProgrammableChip",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 17,
+					"name": "None",
+					"type": "ProgrammableChip",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 18,
+					"name": "None",
+					"type": "ProgrammableChip",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 19,
+					"name": "None",
+					"type": "ProgrammableChip",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 20,
+					"name": "None",
+					"type": "ProgrammableChip",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				},
+				{
+					"index": 21,
+					"name": "None",
+					"type": "Battery",
+					"logic": [
+						"Occupied",
+						"OccupantHash",
+						"Quantity",
+						"Damage",
+						"Charge",
+						"ChargeRatio",
+						"Class",
+						"MaxQuantity",
+						"PrefabHash",
+						"SortingClass",
+						"ReferenceId",
+						"FreeSlots",
+						"TotalSlots"
+					]
+				}
+			],
+			"modes": [],
+			"source": "mod"
+		}
+	]
+}
