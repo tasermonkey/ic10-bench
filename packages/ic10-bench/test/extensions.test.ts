@@ -37,7 +37,7 @@ describe("a device kind's device", () => {
 		const world = await sim({ debug: false }).add("box", box, { chips: [] }, { props: { Setting: 4 }, name: "Big Box" }).build();
 		const device = world.device("box");
 		expect(device.raw).toBeInstanceOf(Box);
-		expect(device.prefab).toBe("ModularDeviceLEDdisplay3");
+		expect(device.prefab).toBe("ModFixtureChipBox");
 		expect(device.name).toBe("Big Box");
 		expect(device.get("Setting")).toBe(4);
 		expect(world.listChips()).toEqual([]);
@@ -52,6 +52,8 @@ describe("a device kind's device", () => {
 
 	it("checks its options with the kind before anything is built", async () => {
 		await expect(sim({ debug: false }).add("box", box, { chips: [], d0: "nothing" }).build()).rejects.toThrow('box "box": no device "nothing"');
+		const three = ["a", "b", "c"].map((key) => ({ key, code: LOOP }));
+		await expect(sim({ debug: false }).add("box", box, { chips: three }).build()).rejects.toThrow('box "box": 3 chips, but it has 2 slots');
 	});
 });
 
@@ -69,11 +71,13 @@ describe("chips a device kind hosts", () => {
 
 	it("have the host as db: memory and logic are the host's, the stack is the chip's own", async () => {
 		const world = await sim({ debug: false })
-			.add("box", box, { chips: [{ key: "a", code: "put db 3 7\nl r0 db Setting\npush 9" }] }, { props: { Setting: 5 } })
+			.add("box", box, { chips: [{ key: "a", code: "put db 3 7\nl r0 db Setting\npush 9\nls r1 db 0 Occupied\nls r2 db 1 Occupied" }] }, { props: { Setting: 5 } })
 			.build();
 		await world.runTicks(1);
 		const chip = world.chip("a");
 		expect(chip.db.key).toBe("box");
+		expect(chip).toHaveRegister("r1", 1); // its own slot
+		expect(chip).toHaveRegister("r2", 0);
 		expect(world.db("a").key).toBe("box");
 		expect(chip).toHaveRegister("r0", 5);
 		expect(world.device("box").stackAt(3)).toBe(7);
@@ -172,7 +176,7 @@ describe("chips a device kind hosts", () => {
 		await world.runTicks(1);
 		const chip = world.chip("a");
 
-		expect(chipReport(chip)).toMatch(/ {2}d0 → one {2}StructureActiveVent .*\n[\s\S]* {2}db → box {2}ModularDeviceLEDdisplay3/);
+		expect(chipReport(chip)).toMatch(/ {2}d0 → one {2}StructureActiveVent .*\n[\s\S]* {2}db → box {2}ModFixtureChipBox/);
 		expect(evaluate(chip, "db.Setting")).toBe(8);
 		expect(evaluate(chip, "db.stack[2]")).toBe(6);
 		expect(evaluate(chip, "d0.Setting")).toBe(1);
@@ -197,16 +201,16 @@ describe("the idle check of a script a device kind hosts", () => {
 
 	it("runs it in the kind's device, with stand-ins on the pins the kind gives it", async () => {
 		// The box's memory is 16 cells: in a circuit housing (512) this would pass either way.
-		const file = script("boxed", "l r0 d0 Temperature\nget r1 db 15\nyield\nj 0", { host: "ModularDeviceLEDdisplay3" });
+		const file = script("boxed", "l r0 d0 Temperature\nget r1 db 15\nyield\nj 0", { host: "ModFixtureChipBox" });
 		await checkIdle(context(), PROJECT, file, "error", [box]);
-		const overflow = script("overflow", "get r1 db 20\nyield", { host: "ModularDeviceLEDdisplay3" });
+		const overflow = script("overflow", "get r1 db 20\nyield", { host: "ModFixtureChipBox" });
 		await expect(checkIdle(context(), PROJECT, overflow, "error", [box])).rejects.toThrow(/halted at line 1/);
 	});
 
 	it("fails when the extension for its host wasn't given", async () => {
-		const file = script("orphan", "yield", { host: "ModularDeviceLEDdisplay3" });
+		const file = script("orphan", "yield", { host: "ModFixtureChipBox" });
 		await expect(checkIdle(context(), PROJECT, file, "error")).rejects.toThrow(
-			"its host is ModularDeviceLEDdisplay3: pass that extension's device kind to describeScriptChecks({ extensions })",
+			"its host is ModFixtureChipBox: pass that extension's device kind to describeScriptChecks({ extensions })",
 		);
 	});
 });

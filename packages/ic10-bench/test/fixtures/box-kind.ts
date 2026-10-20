@@ -1,10 +1,14 @@
 /**
  * A device kind for the extension tests, standing in for a modded device that hosts several chips:
- * a box (built on the fixture's LED Display mod) with 16 cells of memory of its own, and one shared
- * pin, d0, that every chip in it sees and a test can re-patch.
+ * a chip box (`ModFixtureChipBox`, in the fixture project's ic10-mods/) with two processor slots,
+ * 16 cells of memory of its own, and one shared pin, d0, that every chip in it sees and a test can
+ * re-patch.
  */
-import { Chip, type Device, Stack, StructureCircuitHousing, Structure } from "@tasermonkey/ic10";
+import { Chip, type Device, HashString, ItemEntity, Stack, StructureCircuitHousing, Structure } from "@tasermonkey/ic10";
 import type { DeviceKind, HostedChip } from "../../src/index.ts";
+
+/** Its processor slots: chip n goes in slot n − 1. */
+const SOCKETS = 2;
 
 export interface BoxOptions {
 	chips: { key: string; code?: string; file?: string }[];
@@ -48,9 +52,10 @@ class BoxSocket extends StructureCircuitHousing {
 }
 
 export const box: DeviceKind<BoxOptions> = {
-	prefab: "ModularDeviceLEDdisplay3",
+	prefab: "ModFixtureChipBox",
 
 	validate(options, { key, keys }) {
+		if (options.chips.length > SOCKETS) throw new Error(`box "${key}": ${options.chips.length} chips, but it has ${SOCKETS} slots`);
 		if (options.d0 !== undefined && !keys.has(options.d0)) throw new Error(`box "${key}": no device "${options.d0}"`);
 	},
 
@@ -58,11 +63,16 @@ export const box: DeviceKind<BoxOptions> = {
 		const device = new Box({ id: context.id, hash: context.hash });
 		const d0 = options.d0;
 		if (d0 !== undefined) device.d0 = { key: d0, id: context.idOf(d0)! };
-		const chips = options.chips.map((spec): HostedChip => {
+		const chips = options.chips.map((spec, slot): HostedChip => {
 			const program = context.program(spec, `chip "${spec.key}"`);
 			const chip = new Chip({ id: 0, ic10Code: program.code, register_length: 18, stack_length: 512 });
 			const housing = new BoxSocket({ id: context.nextId(), chip });
 			housing.box = device;
+			// The chip in its slot, as the game shows it (ls db 0 Occupied).
+			const item = new ItemEntity(new HashString("ItemIntegratedCircuit10").hash, 1);
+			item.setProp("Occupied", 1);
+			item.setProp("OccupantHash", item.hash);
+			device.slots?.getSlot(slot)?.putItem(item, true);
 			return {
 				key: spec.key,
 				housing,

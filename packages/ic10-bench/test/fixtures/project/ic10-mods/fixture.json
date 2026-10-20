@@ -132,6 +132,38 @@
 			"slots": [],
 			"modes": ["Empty", "Critical", "VeryLow", "Low", "Medium", "High", "Full"],
 			"source": "mod"
+		},
+		{
+			"prefab": "ModFixtureChipBox",
+			"hash": 1386007559,
+			"title": "Chip Box (test fixture: a modded device that hosts two chips)",
+			"logic": {
+				"Power": "r",
+				"Error": "r",
+				"Setting": "rw",
+				"On": "rw",
+				"RequiredPower": "r",
+				"LineNumber": "rw",
+				"PrefabHash": "r",
+				"ReferenceId": "r",
+				"NameHash": "r"
+			},
+			"slots": [
+				{
+					"index": 0,
+					"name": "Processor 1",
+					"type": "ProgrammableChip",
+					"logic": ["Occupied", "OccupantHash", "Quantity", "Damage", "Class", "MaxQuantity", "PrefabHash", "SortingClass", "ReferenceId"]
+				},
+				{
+					"index": 1,
+					"name": "Processor 2",
+					"type": "ProgrammableChip",
+					"logic": ["Occupied", "OccupantHash", "Quantity", "Damage", "Class", "MaxQuantity", "PrefabHash", "SortingClass", "ReferenceId"]
+				}
+			],
+			"modes": [],
+			"source": "mod"
 		}
 	]
 }
