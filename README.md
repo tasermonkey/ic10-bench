@@ -10,6 +10,7 @@ You can setup a simulation, to run the chips in, thanks to `Stationeers-ic`.  Th
 | [`@tasermonkey/ic10-bench`](packages/ic10-bench/) | The test harness, from npm. Start here: its README walks through setting up a project. |
 | [IC10 Bench for VS Code](packages/vscode/) | The debugger: breakpoints in `.ic10` files, registers, stack and devices while a test runs. |
 | [`@tasermonkey/ic10-lint`](packages/ic10-lint/) | Static checks, with no tests to write: the game's size limits, scripts that won't load, batch instructions against the devices, common mistakes. A command line for CI, and the checks behind the harness's `describeScriptChecks()`. |
+| [`@tasermonkey/ic10-bench-ds8`](packages/ic10-bench-ds8/) | An extension for the DS-8 Server Rack mod: scripts in the rack's twelve processor sockets, with its drives, status registers and patch field. |
 
 # Usage Requirements
 - You'll need [Node.js](https://nodejs.org/) 24 or later.  This is because I like typescript, and to run scripts directly in node.  And 24+ adds type striping natively when it runs.

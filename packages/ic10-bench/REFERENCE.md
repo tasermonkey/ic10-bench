@@ -51,6 +51,7 @@ step leaves alone anything already there, so running it again changes nothing.
 | `housing(key, options)` | Adds a chip housing and the script its chip runs. See [Housing options](#housing-options). |
 | `network(id)` | Adds a data network. Leave them all out and every device shares one. See [Data networks](#data-networks). |
 | `mirror(key, options?)` | Adds a Logic Mirror, which stands in on its own network for a device on another. See [Mirror options](#mirror-options). |
+| `add(key, kind, options, device?)` | Adds a device an extension package makes, such as a modded device that hosts several chips. `options` are the kind's own. See [Extensions](#extensions). |
 | `pipe(key, init)` | Adds a pipe network of gas. See [Gas and models](#gas-and-models-experimental). |
 | `room(key, init)` | Adds a sealed room (with a `volume`) or outside air (without one). See [Pipes and rooms](#pipes-and-rooms). |
 | `build()` | Checks the declarations and builds the world. Async. |
@@ -127,6 +128,55 @@ see them all. To build a base with separate networks, declare each one (`.networ
 A chip's batch instructions then only see devices on its own network, and, as in game, its pins can
 only be set to devices on its own network (anything else is a build error). To reach a device on
 another network, use a [Logic Mirror](#mirror-options).
+
+### Extensions
+
+A device IC10 Bench doesn't know can come from an extension package, as a device kind (a
+`DeviceKind`): `sim().add("rack", serverRack, { … })`. The kind makes the device, and any chips it
+hosts. Each hosted chip has a key of its own (`world.chip("airlock")`), and its `db` is the host
+device. Hosted chips run in the order the kind gives them, where the host is declared. The prefab
+must be in your `ic10-mods/`. [@tasermonkey/ic10-bench-ds8](../ic10-bench-ds8#readme) is one.
+
+`add()`'s fourth argument places the device:
+
+| Option | Default | What it does |
+|---|---|---|
+| `props` | none | Starting values for the device's own properties. |
+
+Plus `id`, `name`, `network`, `pipe`, `room` and `ports`, as for a device.
+
+#### Writing a device kind
+
+A `DeviceKind<O>`, where `O` is its options:
+
+| Member | What it does |
+|---|---|
+| `prefab` | Its prefab, which a project has in its `ic10-mods/`. |
+| `validate(options, { key, keys })` | Optional. Checks the options before anything is built; `keys` are every key in the world. Throw to refuse. |
+| `create(context, options)` | Makes the device (an emulator `Device`, not yet on a network) and the chips it hosts: `{ device, chips? }`. |
+| `idle(file, stubs)` | Optional. For the [idle test](#the-idle-test) of a script that runs in it: the options to use, with `stubs.pins` (a stand-in's key for each pin), and which chip key runs the script: `{ options, chip }`. |
+
+`create` gets a `KindContext`:
+
+| Member | What it does |
+|---|---|
+| `key`, `id`, `prefab`, `hash`, `name` | The device's key, reference ID (make the device with it), prefab, prefab hash, and in-game name if given. The prefab is registered with the emulator already. |
+| `idOf(key)` | Another device's reference ID, by key. |
+| `program({ file } \| { code }, what)` | A program's text, and where it came from (`code`, `source`, `path`), for a hosted chip. |
+| `nextId()` | A reference ID no device has, for a hosted chip's housing. |
+
+Each hosted chip is a `HostedChip`:
+
+| Member | What it does |
+|---|---|
+| `key` | The chip's key. It can't be a device's. |
+| `housing` | An emulator `Housing` holding the chip, on no network. Its `getConnectedDevices(-1)` gives `db` (the host); its `network` is what `ld`/`sd` and batch instructions see. |
+| `source`, `path` | Where the program came from, as `program()` gave them. |
+| `pins()` | Which device key is on each pin now, for reports and the debugger. |
+| `linesPerTick()` | Lines it may run in a turn, asked at the start of each. Default: the world's. |
+| `powered()` | Asked at the start of each turn. False: it's skipped; when it's true again, the chip restarts from line 0, as a housing switched back on does. |
+| `held()` | Asked at the start of each turn. True: it sits the turn out and carries on later where it was. |
+| `beforeStep()` / `afterStep()` | Called around each line it runs, so the host knows which chip is asking. |
 
 ## World
 
@@ -234,8 +284,8 @@ A **slot** (`world.device(key).slot(i)`):
 | `restarts` | The ticks it restarted from line 0 in, after its housing was switched back on. |
 | `autoYields` | Times it ran out of lines in a tick and was yielded automatically. |
 | `runToHalt()` | Runs whole ticks until this chip halts or ends. |
-| `db` | Its housing's device handle. |
-| `pins` | Which device key is on each pin, e.g. `{ d0: "vent" }`. |
+| `db` | The device handle of what hosts it: its housing, or an [extension's](#extensions) device. |
+| `pins` | Which device key is on each pin, e.g. `{ d0: "vent" }`. For a hosted chip, as its host has them now. |
 
 ## Matchers
 
@@ -282,6 +332,7 @@ Where it looks for your project and its config:
 |---|---|---|
 | `root` | the project `defineIc10Config` set, or the working directory | The project's folder. |
 | `config` | `ic10-lint.json` in the project's folder | The config file to read. |
+| `extensions` | none | Device kinds from [extension packages](#extensions). A script whose `<script>.json` says `"host": "<prefab>"` runs its idle test in that kind's device. |
 
 ### Configuration
 
@@ -305,6 +356,11 @@ a suit) and read it through `db`; its own logic types keep their rules. So the t
 a script takes with its devices empty, off or at rest, and a loop that waits on one of them without
 a `yield` fails it. A script that finds a device by an ID it works out (`ld r0 r1 On` with `r1`
 computed) can still miss one, and that skips the test ("needs devices").
+
+A script meant for a device that hosts several chips says so beside it, in `<script>.json`:
+`{ "host": "StructureServerRack" }`. Its idle test then runs it in that device, as the
+extension's kind sets it up, with stand-ins on its pins. Pass the kind in `describeScriptChecks({
+extensions })`, or the test fails.
 
 ## Gas and models (experimental)
 

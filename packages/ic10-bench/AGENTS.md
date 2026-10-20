@@ -199,6 +199,32 @@ see one. It runs for `IDLE_TICKS`; a halt for a device still missing skips it. A
 `rules.idle` beats the project's. `ic10-bench lint` is ic10-lint's `runCli` with the project's
 catalogue. Its tests use the fixture project's `ic10/` and `ic10-lint.json`.
 
+A script whose `<script>.json` names a `host` (ic10-lint's `readPerChipFile` reads it) runs in that
+device kind's device instead: the world gets a `stub()` declaration for each pin (`stub-d0`…) and
+each reference ID, the kind's `idle(file, { pins })` gives its options and chip key, and
+`acceptEveryLogicType` isn't used (the kind's device answers for itself).
+
+## Device kinds
+
+An extension package's device (`src/world/kinds.ts`): `SimBuilder.add()` records a `DeviceDecl`
+with `kind`, `build()` checks its prefab is known and calls `validate`, and the spec gets a
+`create` closure with the `KindContext` (`idOf`, `program`, and `nextId` counting up from past every
+assigned ID). In `engine/build.ts` a spec with `create` (or `stub`) is built outside the env JSON,
+in `addCustomDevices`: the prefab is registered first (`registerModPrefab`, `registerPrefabName`),
+the kind makes the device, and the harness puts it on its network and writes its `props`. The chips
+it hosts come back in `engine.hosted`, by host ID; `prepareEngine` gives their housings runners
+like any other.
+
+A hosted chip's `ChipState` has `hostKey` (the host; for a housing, its own key) and `hosting` (the
+kind's hooks). Everything that wants a chip's `db` uses `hostKey`: `ChipHandle.db`, `world.value`
+for a non-register name, `deviceKeyFor`, the Devices scope, `chipReport` and `toOnlyChange`'s
+LineNumber rule. The scheduler takes chips in declaration order with a host's chips at its place;
+at the start of each turn it asks `powered()` (in place of the housing's `On`, so off then on is a
+restart), `held()` and `linesPerTick()` (into `turnLines`), and `stepChip` calls `beforeStep` and
+`afterStep` around each line. `db` itself is the fork's: `RealContext` asks the housing's
+`getConnectedDevices(-1)`, so a kind's housing answers with its host. `test/extensions.test.ts`
+covers it all with a test-only kind (`test/fixtures/box-kind.ts`).
+
 ## The emulator's device table
 
 `registerModPrefab` adds mods' devices (and the Logic Mirror) to the emulator's global `DEVICES`
@@ -212,5 +238,7 @@ These change the public API, so they wait for 2.0:
 
 - `ChipHandle.errors` returns the emulator's `Ic10Error`s, and `DeviceHandle.raw` its `Device`, so
   the fork's types are part of this package's API. Wrap them in the harness's own types (a message,
-  severity, line and code; and drop `raw`, or make it `@internal`).
+  severity, line and code; and drop `raw`, or make it `@internal`). Device kinds (`DeviceKind`,
+  `HostedChip`) are emulator-level by nature, and an extension's handle reaches its device through
+  `raw` (ic10-bench-ds8's `RackHandle`), so keep a way for an extension to do that.
 - `Halt.error` is an `Ic10Error` for the same reason.

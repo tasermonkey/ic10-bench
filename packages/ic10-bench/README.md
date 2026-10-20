@@ -253,6 +253,10 @@ even before `catalog`; only the types need it.
 For a device in no export at all, pass `{ custom: true }`: it gets every logic property, readable
 and writable.
 
+A modded device that does more than hold values, such as one that runs chips of its own, comes from
+an extension package and is added with `add()`. One example is the DS-8 Server Rack, in
+[@tasermonkey/ic10-bench-ds8](../ic10-bench-ds8#readme). See [Extensions](REFERENCE.md#extensions).
+
 ## Looking things up
 
 `npx ic10-bench` answers "what does this device have?" without opening the game:

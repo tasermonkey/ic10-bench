@@ -95,3 +95,16 @@ Lights.ic10.json`), by the two lines' code:
 
 Lint reads both: `per-chip-block` checks that ic10-link can find each block, and `per-chip-jump`
 warns about jumping to a line number past one.
+
+## The script's host
+
+A script that runs in a device hosting several chips (a modded one, such as the DS-8 Server Rack)
+says so in the same `<script>.json`:
+
+```json
+{ "host": "StructureServerRack" }
+```
+
+| Key | What it does |
+|---|---|
+| `host` | The prefab of the device the script runs in. IC10 Bench's idle test runs it there, with the extension for that device. Left out: a circuit housing. Lint itself doesn't change: the game's limits are the same. |
