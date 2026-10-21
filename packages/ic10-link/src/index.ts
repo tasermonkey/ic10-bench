@@ -16,7 +16,17 @@ export {
 export { documentsFolder, expandWindowsVariables, windowsDocuments } from "./game/os.ts";
 
 // The project's side: its station maps.
-export { adoptChip, chipId, type MapResult, mapChip, unmapChip } from "./project/mapping.ts";
+export {
+	type AutoMapAmbiguous,
+	type AutoMapped,
+	type AutoMapResult,
+	adoptChip,
+	autoMap,
+	chipId,
+	type MapResult,
+	mapChip,
+	unmapChip,
+} from "./project/mapping.ts";
 export {
 	type ChipEntry,
 	checkStations,

@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { type CliIo, runCli } from "../src/cli.ts";
 import { type Folder, makeFolder, touch } from "./project.ts";
@@ -105,8 +105,16 @@ describe("ic10-link status", () => {
 	});
 });
 
-describe("ic10-link map, adopt and unmap", () => {
+describe("ic10-link map, adopt, auto-map and unmap", () => {
 	const mapOf = (project: Folder) => JSON.parse(readFileSync(join(project.root, "stations", "Base.json"), "utf8"));
+
+	/** Scripts with `yield` in them, by path relative to the project. */
+	const addScripts = (project: Folder, ...paths: string[]) => {
+		for (const path of paths) {
+			mkdirSync(dirname(join(project.root, path)), { recursive: true });
+			writeFileSync(join(project.root, path), "yield");
+		}
+	};
 
 	it("map adds a chip to the station's map, tab-indented, in id order", async () => {
 		const { chipdata, project } = setup();
@@ -172,6 +180,50 @@ describe("ic10-link map, adopt and unmap", () => {
 		);
 		expect((await run(project, "adopt", "999", "ic10/new.ic10", "--chipdata", chipdata.root)).output).toContain("No chip [999] in Base.");
 		expect(existsSync(join(project.root, "ic10", "new.ic10"))).toBe(false);
+	});
+
+	it("auto-map maps each empty, unmapped chip to the one script named like its label, and lists the ones named like several", async () => {
+		const { chipdata, project } = setup({
+			"Room Lights [460].ic10": "",
+			"air [461].ic10": "\r\n",
+			"Pump [462].ic10": "",
+			"Heater [463].ic10": "yield",
+			"Fan [464].ic10": "",
+			"Old Fan [464].ic10": "",
+			"Air [466].ic10": "",
+		});
+		addScripts(project, "ic10/EControl/Room Lights.ic10", "ic10/Climate/Air.ic10", "ic10/A/Pump.ic10", "ic10/B/Pump.ic10");
+		addScripts(project, "ic10/Heater.ic10", "ic10/Fan.ic10", "ic10/Old Fan.ic10", "Room Lights.ic10");
+		writeFileSync(join(project.root, "stations", "Base.json"), JSON.stringify({ chips: { "451": "ic10/lights.ic10", "466": "ic10/lights.ic10" } }));
+		const { code, output } = await run(project, "auto-map", "--chipdata", chipdata.root);
+		expect(code).toBe(0);
+		expect(output).toBe(
+			[
+				"Mapped 2 chips in Base:",
+				"  [460] Room Lights -> ic10/EControl/Room Lights.ic10",
+				"  [461] air -> ic10/Climate/Air.ic10",
+				"",
+				"Not mapped, named like several scripts (see map):",
+				"  [462] Pump: ic10/A/Pump.ic10, ic10/B/Pump.ic10",
+				"",
+			].join("\n"),
+		);
+		// Left alone: Heater, which has code; Fan, which has two files; Air [466], which is mapped already.
+		expect(mapOf(project).chips).toEqual({
+			"451": "ic10/lights.ic10",
+			"460": "ic10/EControl/Room Lights.ic10",
+			"461": "ic10/Climate/Air.ic10",
+			"466": "ic10/lights.ic10",
+		});
+		const again = await run(project, "auto-map", "--chipdata", chipdata.root);
+		expect(again.output).toMatch(/^Nothing to map in Base: no empty, unmapped chip is named like exactly one script in ic10\/\.\n/);
+	});
+
+	it("auto-map looks for scripts in ic10-lint.json's dir, and only there", async () => {
+		const { chipdata, project } = setup({ "Room Lights [460].ic10": "", "Air [461].ic10": "" });
+		writeFileSync(join(project.root, "ic10-lint.json"), JSON.stringify({ dir: "scripts" }));
+		addScripts(project, "ic10/Room Lights.ic10", "scripts/Air.ic10");
+		expect((await run(project, "auto-map", "--chipdata", chipdata.root)).output).toBe("Mapped 1 chip in Base:\n  [461] Air -> scripts/Air.ic10\n");
 	});
 
 	it("unmap takes a chip out of the map, and leaves its script", async () => {

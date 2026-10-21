@@ -7,6 +7,7 @@
 | `ic10-link status` | Lists the station's chips: the mapped ones and how each compares with its script, the unmapped ones with code, and the empty ones. It changes nothing, except for deleting a relabelled chip's old files when you say which one is current (see [Relabelled chips](#relabelled-chips)). |
 | `ic10-link map <chip id> <script.ic10>` | Maps the chip to a script the project has, replacing what it was mapped to. The game needn't have a file for the chip yet. |
 | `ic10-link adopt <chip id> <script.ic10>` | Copies the chip's code from the game into a new script (as the game keeps it, with LF line endings), and maps the chip to it. Won't overwrite a script, or pick between a relabelled chip's files. |
+| `ic10-link auto-map` | Maps each chip that's empty and not mapped yet to the script named like its label: a chip labelled `Room Lights` runs `ic10/EControl/Room Lights.ic10`. The scripts are the ones in `ic10-lint.json`'s `dir` (`ic10` by default), and a name matches without `.ic10`, ignoring case. Lists the chips it mapped, and the ones whose label names several scripts, which it leaves for `map`. A chip with code is left alone (see `adopt`), and so is a [relabelled chip](#relabelled-chips) until `status` has picked its file. |
 | `ic10-link unmap <chip id>` | Takes the chip out of the map. Its script stays. |
 | `ic10-link once` | One pass: each mapped chip whose script changed gets the script, if it passes its [checks](#checks-before-sending), and each chip edited in game is copied back to its script. See [Passes](#passes). |
 | `ic10-link watch` | A pass at the start, then another whenever a script, a test, a station's map or a chip's file changes, until Ctrl+C. Each line it prints starts with the time, to match against the game's console. |
@@ -32,7 +33,7 @@ is the project's folder.
 | --- | --- |
 | 0 | Done. |
 | 1 | `status`: a chip still has several files (see [Relabelled chips](#relabelled-chips)). `once`: a script failed its checks, whether it was held back or copied from the game. |
-| 2 | A bad command, argument or option, no chipdata folder or station, or a `map`, `adopt` or `unmap` that couldn't be done (the message says why). |
+| 2 | A bad command, argument or option, no chipdata folder or station, or a `map`, `adopt`, `auto-map` or `unmap` that couldn't be done (the message says why). |
 
 ## Mapped chip states
 

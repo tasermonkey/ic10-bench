@@ -2,7 +2,7 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { basename, relative, resolve } from "node:path";
 import { anchorCode, locateBlocks, runProgram } from "@tasermonkey/ic10-lint";
 import { CHIPDATA_ENV, findChipdata, findStation, type Station } from "./game/chipdata.ts";
-import { adoptChip, chipId, type MapResult, mapChip, unmapChip } from "./project/mapping.ts";
+import { adoptChip, autoMap, chipId, type MapResult, mapChip, unmapChip } from "./project/mapping.ts";
 import { scriptPath, stationFile } from "./project/stations.ts";
 import type { CliIo } from "./io.ts";
 import { addPerChipBlock, addPerChipNames, defineValues, perChipOf } from "./sync/per-chip.ts";
@@ -19,6 +19,13 @@ ic10-link <command> --help says more about each command.`;
 /** In `map`, `adopt` and `unmap`'s `--help`. */
 const ABOUT_MAP = `A station's map, stations/<station>.json, says which chip runs which of this project's scripts.
 A chip's id is the number in brackets in its file's name: 450 for "Script1 [450].ic10".`;
+
+/** In `auto-map`'s `--help`. */
+const ABOUT_AUTO_MAP = `${ABOUT_MAP}
+A chip is mapped when it's empty, isn't mapped yet, and its label is the name of exactly one script
+in the project's folder of scripts (ic10-lint.json's "dir", ic10 by default), without .ic10, ignoring
+case: a chip labelled "Room Lights" runs ic10/EControl/Room Lights.ic10. A chip with code is left
+alone (see adopt), and so is a chip whose label names several scripts, which are listed.`;
 
 /** In `once` and `watch`'s `--help`. */
 const ABOUT_SYNC = `A script's tests are the test files that name it; they run with the project's Vitest.
@@ -208,6 +215,24 @@ const COMMANDS: CommandSpec[] = [
 			const result = adoptChip(io.cwd, station, chip, path);
 			io.out(`Copied [${chip}] ${result.chip?.label}'s code to ${path} (${lines(result.lines)})`);
 			reportMapped(chip, path, result, io);
+			return 0;
+		},
+	},
+	{
+		usage: "auto-map",
+		description: "maps each empty, unmapped chip to the one script named like its label",
+		about: ABOUT_AUTO_MAP,
+		run: async (_, options, io) => {
+			const station = stationFor(options, io);
+			const { dir, mapped, ambiguous } = autoMap(io.cwd, station);
+			const where = stationLabel(station.name, io.color);
+			if (mapped.length === 0) io.out(`Nothing to map in ${where}: no empty, unmapped chip is named like exactly one script in ${dir}/.`);
+			else io.out(`Mapped ${mapped.length} chip${mapped.length === 1 ? "" : "s"} in ${where}:`);
+			for (const chip of mapped) io.out(`  [${chip.id}] ${chip.label} -> ${chip.script}`);
+			if (ambiguous.length > 0) {
+				io.out("\nNot mapped, named like several scripts (see map):");
+				for (const chip of ambiguous) io.out(`  [${chip.id}] ${chip.label}: ${chip.scripts.join(", ")}`);
+			}
 			return 0;
 		},
 	},

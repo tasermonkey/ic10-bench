@@ -27,7 +27,7 @@ the REPL runs each line through `runCli`.
 | Folder | What's in it |
 | --- | --- |
 | `src/game/` | The game's side. `chipdata.ts`: the IC10Sync mod's folder, a subfolder per station, a `<label> [<id>].ic10` file per chip (the mod names the station folder after `XmlSaveLoad.Instance.CurrentStationName`, made safe for a file name). `os.ts`: what depends on the operating system, the Documents folder, read from Windows' registry since OneDrive can move it. |
-| `src/project/` | The project's side. `stations.ts`: `stations/<station>.json`, chip ids to scripts. `mapping.ts`: `map`, `adopt` and `unmap`. |
+| `src/project/` | The project's side. `stations.ts`: `stations/<station>.json`, chip ids to scripts. `mapping.ts`: `map`, `adopt`, `auto-map` (which finds the scripts with ic10-lint's config and `findScripts`, as lint does) and `unmap`. |
 | `src/sync/` | Comparing and copying between the two. `text.ts`, `state.ts`, `gate.ts` (the checks before sending), `per-chip.ts` (per-chip defines and blocks: masked when comparing and hashing, swapped in when sending or pulling; which defines and blocks a script declares, its markers and `<script>.json`, is ic10-lint's `per-chip.ts`, so lint sees them too), `status.ts` (read only) and `sync.ts` (one pass). |
 | `src/watch/` | `watch.ts`: the watchers, which only report changes. `scheduler.ts`: when a pass runs. |
 | `src/repl/` | `repl.ts`: `ic10-link repl`. Every line typed goes through one queue. A command's question (a relabelled chip's files) is `io.choose`'s pick list, with the REPL's readline closed while it's open (two readers of the terminal would each get the keys) and opened again after, with its history; lines printed meanwhile are held until then. Without a terminal, the question is asked at the prompt by number. `watch` is `runCli(["watch", …])` left running, with its own `AbortController` for `stop`; output while the prompt waits is printed above it and the prompt redrawn. `words.ts`: splitting a line, quote-aware. |
@@ -51,7 +51,7 @@ each chip between passes, so `watch` doesn't check or print the same thing twice
 ## Tests
 
 `test/` has the same folders as `src/` (`test/sync/sync.test.ts` tests `src/sync/sync.ts`);
-the command line's tests, `map`/`adopt`/`unmap`'s among them, are in `test/cli.test.ts`. Tests
+the command line's tests, `map`/`adopt`/`auto-map`/`unmap`'s among them, are in `test/cli.test.ts`. Tests
 build a project and a chipdata folder in temp folders (`test/project.ts`). Nothing reads the
 real registry, game folder or terminal: `CliIo.documents`, `env` and `choose` stand in for them
 (`choose` is @inquirer/prompts' `select` in `bin/ic10-link.ts`, the only place that imports it).

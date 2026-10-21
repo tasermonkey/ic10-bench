@@ -1,9 +1,11 @@
-/** Changing a station's map: `map`, `adopt` and `unmap`. */
+/** Changing a station's map: `map`, `adopt`, `auto-map` and `unmap`. */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
+import { findScripts, loadConfig, projectRelative } from "@tasermonkey/ic10-lint";
 import { type Chip, listChips, type Station } from "../game/chipdata.ts";
+import { stationStatus } from "../sync/status.ts";
 import { gameText } from "../sync/text.ts";
-import { loadStation, saveStation } from "./stations.ts";
+import { loadStation, saveStation, scriptPath } from "./stations.ts";
 
 export interface MapResult {
 	/** The chip's file, when the game has exactly one for it. */
@@ -50,6 +52,62 @@ export function adoptChip(root: string, station: Station, id: string, script: st
 	mkdirSync(dirname(file), { recursive: true });
 	writeFileSync(file, text === "" ? "" : `${text}\n`);
 	return { ...mapChip(root, station, id, script), lines: text === "" ? 0 : text.split("\n").length };
+}
+
+/** A chip `autoMap` mapped. */
+export interface AutoMapped {
+	id: string;
+	label: string;
+	/** Relative to the project, with forward slashes. */
+	script: string;
+}
+
+/** An empty chip `autoMap` left alone, since its label names more than one script. */
+export interface AutoMapAmbiguous {
+	id: string;
+	label: string;
+	/** The scripts it names, relative to the project. */
+	scripts: string[];
+}
+
+export interface AutoMapResult {
+	/** The project's folder of scripts (ic10-lint's `dir`), relative to the project. */
+	dir: string;
+	mapped: AutoMapped[];
+	ambiguous: AutoMapAmbiguous[];
+}
+
+/** A label or a script's name, as `autoMap` compares them: trimmed, ignoring case, as Windows' file names do. */
+function nameKey(name: string): string {
+	return name.trim().toLowerCase();
+}
+
+/**
+ * Maps each of the station's empty, unmapped chips whose label is the name of exactly one script
+ * in the project's folder of scripts (ic10-lint's `dir`, `ic10` by default), without `.ic10`: a
+ * chip labelled `Room Lights` runs `ic10/EControl/Room Lights.ic10`. A chip with code is left
+ * alone, since `adopt` or `map` would decide what happens to its code; so is a relabelled chip's,
+ * until `status` has picked its file.
+ */
+export function autoMap(root: string, station: Station): AutoMapResult {
+	const config = loadConfig(root);
+	const scripts = existsSync(config.dir) ? findScripts(config.dir) : [];
+	const byName = Map.groupBy(
+		scripts.map((file) => scriptPath(root, root, file)),
+		(script) => nameKey(basename(script, ".ic10")),
+	);
+	const result: AutoMapResult = { dir: projectRelative(root, config.dir) || ".", mapped: [], ambiguous: [] };
+	for (const chip of stationStatus(root, station).unmapped.filter((chip) => chip.lines === 0)) {
+		const named = byName.get(nameKey(chip.label)) ?? [];
+		if (named.length === 1) result.mapped.push({ id: chip.id, label: chip.label, script: named[0]! });
+		if (named.length > 1) result.ambiguous.push({ id: chip.id, label: chip.label, scripts: named });
+	}
+	if (result.mapped.length > 0) {
+		const map = loadStation(root, station.name);
+		for (const { id, script } of result.mapped) map.chips[id] = { script };
+		saveStation(root, station.name, map);
+	}
+	return result;
 }
 
 /** Takes chip `id` out of the map; returns the script it was mapped to. */
