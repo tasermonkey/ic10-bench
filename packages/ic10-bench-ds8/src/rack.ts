@@ -43,7 +43,7 @@ export const PIN_NAMES: readonly PinName[] = ["d0", "d1", "d2", "d3", "d4", "d5"
 
 /** The rack's switches that matter to its chips and memory. */
 export interface RackSwitches {
-	/** I/O: chips reach devices (pins, `ld`/`sd`, batch). Off, every pin is empty. Default on. */
+	/** I/O: chips reach devices (pins, `ld`/`sd`, batch). Off, every pin is empty and batch fails. Default on. */
 	io: boolean;
 	/** MEM WR: the rack's own chips can write its drives. Default on. */
 	memWrite: boolean;
@@ -80,6 +80,35 @@ const nameOf = (prop: number | string): string => (typeof prop === "string" ? pr
 
 function stackError(message: "stack_underflow" | "stack_overflow"): Ic10Error {
 	return new Ic10Error({ message: i18n.t(`error.${message}`), severity: ErrorSeverity.Strong });
+}
+
+/**
+ * The network a rack's chips see with the I/O switch off. In game a batch instruction then stops
+ * the chip with DeviceListNull (in game, 2026-10-20). Its device list is empty, and listing it
+ * while a chip runs a line throws that: the batch instructions list it (`Array.from`, by its
+ * iterator), the emulator's per-line error sweep doesn't (`forEach`). `ld`/`sd` by ID find nothing.
+ */
+class IoOffNetwork extends Network {
+	constructor(rack: { readonly asking: number }) {
+		super();
+		class NoDevices extends Set<Device> {
+			override [Symbol.iterator](): SetIterator<Device> {
+				if (rack.asking > 0) {
+					throw new Ic10Error({ message: "DeviceListNull: no devices on the network (the rack's I/O switch is off)", severity: ErrorSeverity.Strong });
+				}
+				return super[Symbol.iterator]();
+			}
+		}
+		Object.defineProperty(this, "devices", { value: new NoDevices() });
+	}
+
+	override deviceById(): Device | undefined {
+		return undefined;
+	}
+
+	override devicesByHash(): Device[] {
+		return Array.from(this.devices);
+	}
 }
 
 export class RackDevice extends Structure {
@@ -124,8 +153,8 @@ export class RackDevice extends Structure {
 	writes = 0;
 	faults = 0;
 	private readonly rackMemory: RackMemory;
-	/** What the rack's chips see as their network with I/O off: nothing. */
-	private readonly unplugged = new Network();
+	/** What the rack's chips see as their network with I/O off: nothing, and batch instructions fail. */
+	private readonly unplugged: Network = new IoOffNetwork(this);
 	private wasOnline = true;
 
 	constructor(args: DeviceConstructor, capacity = DEFAULT_DRIVE_CAPACITY) {

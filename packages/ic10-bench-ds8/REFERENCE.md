@@ -32,7 +32,7 @@ with `On` = 1 and `Temperature` = 318.15 K (45 °C, where it sits in base air).
 
 | Switch | Default | What it does |
 |---|---|---|
-| `io` | on | I/O: chips reach devices. Off, every pin is empty, and `ld`/`sd` and batch instructions find nothing. |
+| `io` | on | I/O: chips reach devices. Off, every pin is empty, `ld`/`sd` by ID find nothing, and a batch instruction stops the chip with DeviceListNull. The ports' IDs still read. |
 | `memWrite` | on | MEM WR: the rack's own chips can write its drives. Off, their writes are dropped (a fault); a chip elsewhere still can. |
 | `remote` | on | REM: chips elsewhere can write the rack's `Setting`, `Index`, `Mode`, `Lock`, `ClearMemory` and `LineNumber`. Off, those writes are dropped (a fault). |
 | `maint` | off | MAINT: maintenance mode, which drops those writes too. |
@@ -52,7 +52,8 @@ with `On` = 1 and `Temperature` = 318.15 K (45 °C, where it sits in base air).
   port empty. An empty pin is DeviceNotFound, as in a housing.
 - **By ID and batch.** `ld`/`sd` by ID and batch instructions see the rack's data network.
 - **Power.** With the rack switched off (`On` = 0), without a system board, or overheated, its
-  chips stop. When it's back, they restart from line 0.
+  chips stop. When it's back, they carry on from the line they were on, with their registers.
+  In game, only putting a chip back in its socket, or resetting its processor, starts it over.
 
 ## Memory
 

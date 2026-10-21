@@ -245,8 +245,10 @@ export const serverRack: DeviceKind<RackOptions> & {
 				...(program.path !== undefined && { path: program.path }),
 				pins: () => rack.pinKeys(),
 				linesPerTick: () => rack.linesPerTick,
-				powered: () => rack.checkPower(),
-				held: () => !rack.switches.run[index] || rack.held[index]!,
+				// The rack off (or overheated, or without its board) holds its chips where they are: in
+				// game they carry on from the same line when it's back (2026-10-20). Only putting the
+				// chip back in, or resetting its processor, starts it over.
+				held: () => !rack.checkPower() || !rack.switches.run[index] || rack.held[index]!,
 				beforeStep: () => {
 					rack.asking = index + 1;
 				},

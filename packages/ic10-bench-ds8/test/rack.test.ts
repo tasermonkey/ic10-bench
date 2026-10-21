@@ -80,23 +80,25 @@ describe("chips in the rack", () => {
 		expect(world.chip("a")).toHaveRegister("r0", 1);
 	});
 
-	it("stop when the rack is switched off, and restart from line 0 when it's on again", async () => {
+	it("stop when the rack is switched off, and carry on where they were when it's on again", async () => {
+		// In game (2026-10-20): the line, the registers and the memory are as they were.
 		const world = await build({ chips: [{ key: "a", code: LOOP }] });
 		await world.runTicks(2);
 		world.device("rack").set("On", 0);
 		await world.runTicks(2);
-		expect(world.chip("a").switchedOff).toBe(true);
 		expect(rack(world).processor(1).state).toBe("halted");
+		expect(world.chip("a")).toHaveRegister("r0", 2);
 		world.device("rack").set("On", 1);
 		await world.runTicks(1);
-		expect(world.chip("a").restarts).toEqual([4]);
+		expect(world.chip("a").restarts).toEqual([]);
 		expect(world.chip("a")).toHaveRegister("r0", 3);
 	});
 
 	it("don't start without a system board", async () => {
 		const world = await build({ chips: [{ key: "a", code: LOOP }], motherboard: false });
-		await world.runTicks(1);
-		expect(world.chip("a").switchedOff).toBe(true);
+		await world.runTicks(2);
+		expect(rack(world).processor(1).state).toBe("halted");
+		expect(world.chip("a")).toHaveRegister("r0", 0);
 	});
 
 	it("see the rack's slots: drives, chips and the system board", async () => {
@@ -155,6 +157,18 @@ describe("the patch field and the I/O ports", () => {
 		const world = await build({ pins: { d0: "one" }, switches: { io: false }, chips: [{ key: "a", code: "l r0 d0 Temperature" }] }, twoSensors);
 		await world.runTicks(1);
 		expect(world.chip("a").halt?.error.message).toMatch(/not found/i);
+	});
+
+	it("with I/O off, stops a batch instruction with DeviceListNull, and finds nothing by ID", async () => {
+		// In game (2026-10-20): `lb` stopped with DeviceListNull; the ports' IDs still read.
+		const batch = await build({ switches: { io: false }, chips: [{ key: "a", code: "lb r0 HASH(\"StructureGasSensor\") Temperature Sum" }] }, twoSensors);
+		await batch.runTicks(1);
+		expect(batch.chip("a").halt?.error.message).toMatch(/DeviceListNull/);
+
+		const byId = await build({ ports: { 9: "two" }, switches: { io: false }, chips: [{ key: "a", code: "get r1 db 4160\nld r0 r1 Temperature" }] }, twoSensors);
+		await byId.runTicks(1);
+		expect(byId.chip("a")).toHaveRegister("r1", byId.device("two").id);
+		expect(byId.chip("a").halt).not.toBeNull();
 	});
 
 	it("keeps each port's device ID in memory, for ld and sd", async () => {
